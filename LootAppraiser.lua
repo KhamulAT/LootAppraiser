@@ -435,9 +435,9 @@ function handleItemLooted(itemLink, itemID, quantity)
 			-- add item to current session
 			local itemCountCurrentSession = currentSession.noteworthyItems[itemID]
 			if itemCountCurrentSession == nil then
-				currentSession.noteworthyItems[itemID] = quantity
+				currentSession.noteworthyItems[tostring(itemID)] = quantity
 			else
-				currentSession.noteworthyItems[itemID] = itemCountCurrentSession + quantity
+				currentSession.noteworthyItems[tostring(itemID)] = itemCountCurrentSession + quantity
 			end
 
 			-- play sound (if enabled)

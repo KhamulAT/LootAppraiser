@@ -1,7 +1,7 @@
 -- LootAppraiser_Config.lua --
 local LootAppraiser, LA = ...;
 
-local Config = LA:NewModule("Config", "AceEvent-3.0")
+local Config = LA:NewModule("Config", "AceEvent-3.0", "AceConsole-3.0")
 
 local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
@@ -569,10 +569,163 @@ function prepareStatistics(event, ...)
 		end
 	end
 
-
 end
 
+
+
 function getStatisticGroups()
+	Debug("  getStatisticGroups")
+
+	local groups = {}
+
+	local baseorder = 100;
+
+	--local i = 0
+
+	local sessions = LA:getSessions()
+	for i,v in ipairs(sessions) do
+		local sessionMapID = v["mapID"]
+		local sessionStart = v["start"]
+		local sessionEnd = v["end"]
+		local liv = v["liv"]
+		
+		if sessionEnd ~= nil then
+			-- group name
+			local grpID
+			local groupName
+			if sessionMapID ~= nil then
+				grpID = "grp" .. tostring(sessionMapID)
+				groupName = GetMapNameByID(sessionMapID)
+			else
+				grpID = "grgUndefined"
+				groupName = "-Undefined-"
+			end
+
+			-- get group or create new if no group exists
+			local grp = groups[grpID]
+			if grp == nil then
+				grp = prepareMapGroup(groupName, #groups+1)
+				groups[grpID] = grp
+			end
+
+			-- add row to group
+			local row = prepareSessionRow(v, i)
+			grp.args["row" .. (baseorder+i)] = row
+
+			-- duration
+			local sessionDuration = sessionEnd - sessionStart
+			row.args["sessionDuration" .. (baseorder+1)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 2, 
+				name = SecondsToTime(sessionDuration),
+				width = "normal", 
+			}
+			
+			-- looted item value
+			local formattedLiv = LA:FormatTextMoney(liv) or 0
+			row.args["liv" .. (baseorder+1)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 3, 
+				name = formattedLiv,
+				width = "normal", 
+			}
+
+			-- liv / hour
+			local factor = 3600
+			if sessionDuration < factor then
+				factor = sessionDuration
+			end
+
+			local livGold = floor(liv/10000)
+			local livGoldPerHour = floor(livGold/sessionDuration*factor)
+			row.args["livPerHour" .. (baseorder+1)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 6, 
+				name = livGoldPerHour .. "|cffffd100g|r/h",
+				width = "normal", 
+			}
+
+			-- new line
+			row.args["newline" .. (baseorder+1)] = {
+				order = baseorder + (i * 10) + 7,
+				type = "description",
+				name = "",
+				width = "full",
+				cmdHidden = true,
+			}
+
+			-- noteworthy items grp
+			local noteworthyItems = v["noteworthyItems"]
+			local noteworthyItemsGroup = {
+				type = "group",
+				order = baseorder + (i * 10) + 8,
+				inline = true,
+				name = "noteworthy: " .. tostring(tlength(noteworthyItems)),
+				args = {
+				},
+				plugins = {
+				},
+			}
+			row.args["noteworthy" .. (baseorder+1)] = noteworthyItemsGroup
+
+			-- add all items to the group
+			local i = 0
+			for itemID, quantity in pairs(noteworthyItems) do
+				--Debug("    " .. tostring(itemID) .. " x" .. tostring(quantity))
+				local itemLink = select(2, GetItemInfo(itemID))
+
+				noteworthyItemsGroup.args["item" .. tostring(itemID)] = {
+					type = "description",
+					order = i,
+					name = itemLink .. " x" .. tostring(quantity),
+					width = "full",
+				}
+
+				i=i+1
+			end
+		end
+
+		baseorder = baseorder + 200
+	end
+	
+	return groups
+end
+
+
+function prepareMapGroup(name, order)
+	local grp = {
+		type = "group",
+		order = order,
+		name = name,
+		args = {
+		},
+		plugins = {
+		},
+	}
+
+	return grp
+end
+
+function prepareSessionRow(session, order)
+	local player = session["player"] or ""
+	local name = player .. " - " .. date("%x", session["start"])
+
+	local row = {
+		type = "group",
+		order = order,
+		inline = true,
+		name = name,
+		args = {
+		},
+		plugins = {
+		},
+	}
+
+	return row
+end
+
+
+function getStatisticGroups_org()
 	Debug("  getStatisticGroups")
 
 	local groups = {}
@@ -724,3 +877,14 @@ function deleteStatisticEntry(entryID)
 	Debug("  deleteStatisticEntry: entryID=" .. tostring(entryID))
 end
 
+function tlength(T)
+  local count = 0
+  for _ in pairs(T) do count = count + 1 end
+  return count
+end
+
+function Debug(msg)
+	--if LA.DEBUG then
+		LA:Print(tostring(msg))
+	--end
+end
