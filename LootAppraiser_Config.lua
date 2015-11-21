@@ -3,8 +3,9 @@ local LootAppraiser, LA = ...;
 
 local Config = LA:NewModule("Config", "AceEvent-3.0")
 
-AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
-AceConfigDialog = LibStub("AceConfigDialog-3.0")
+local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
+local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+local AceGUI = LibStub("AceGUI-3.0")
 
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
@@ -317,7 +318,6 @@ local options = {
 						},
 					},
 				},
-
 				aboutGroup = {
 					type = "group", 
 					order = 100, 
@@ -352,6 +352,8 @@ local options = {
 --[[-------------------------------------------------------------------------------------
 -- AceAddon-3.0 - module standard methods
 ---------------------------------------------------------------------------------------]]
+local statisticFrame
+
 function Config:OnInitialize()
 	Debug("Config:OnInitialize()")
 
@@ -364,20 +366,17 @@ function Config:OnInitialize()
 	LSM:Register("sound", "Raid Warning", "Sound/Interface/RaidWarning.ogg")
 	LSM:Register("sound", "Ready Check", "Sound/Interface/ReadyCheck.ogg")
 
-
+	-- general LootAppraiser configuration
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser, options.args.general)
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Statistic", options.args.statistic, LootAppraiser)
 
+	-- statistics
 	AceConfigDialog:AddToBlizOptions(LootAppraiser)
-	AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
+	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
+	--statisticFrame:SetScript("OnShow", onShowStatistics)
+	--statisticFrame.refresh = onShowStatistics
 
-	options.args.statistic.args = getStatisticGroups()
-
-	statisticsPanel = CreateFrame("Frame")
-	statisticsPanel.name = "Statistics"
-	statisticsPanel.parent = "LootAppraiser" --panel.name
-
-	--InterfaceOptions_AddCategory(statisticsPanel)
+	options.args.statistic.args = getStatisticGroups() -- prepare statistic groups
 
 	-- Fix sink config options
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.order = 200
@@ -397,7 +396,18 @@ function Config:OnDisable()
 end
 
 
-function getStatisticGroups()
+function onShowStatistics(event, ... )
+	Debug("  onShowStatistics")
+
+	local childs = statisticFrame:GetChildren()
+	Debug("  #" .. tostring(statisticFrame:GetNumChildren()))
+
+	for i, child in ipairs(childs) do
+	  Debug("    " .. type(child))
+	end
+end
+
+function getStatisticGroups_dump()
 	Debug("  getStatisticGroups")
 
 	local groups = {}
@@ -445,48 +455,238 @@ function getStatisticGroups()
 				type = "description", 
 				order = baseorder + (i * 10), 
 				name = date("%x", sessionStart),
-				width = "half", 
-			}
-
---[[
-			grp.args["player" .. (baseorder+i)] = {
-				type = "description", 
-				order = baseorder + (i * 10) + 1, 
-				name = v["player"] or "",
 				width = "normal", 
 			}
-]]
 
+			-- new line
+			grp.args["newline" .. (baseorder+i)] = {
+				order = baseorder + (i * 10) + 1,
+				type = "description",
+				name = "",
+				width = "full",
+				cmdHidden = true,
+			}
+
+			grp.args["sessionStart0" .. (baseorder+i)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 2, 
+				name = date("%x", sessionStart),
+				width = "normal", 
+			}
+
+			-- new line
+			grp.args["newline0" .. (baseorder+i)] = {
+				order = baseorder + (i * 10) + 3,
+				type = "description",
+				name = "",
+				width = "full",
+				cmdHidden = true,
+			}
+		end
+
+		i = i + 1
+		baseorder = baseorder + 200
+	end
+	
+	return groups
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- 
+---------------------------------------------------------------------------------------]]
+function prepareStatistics(event, ...)
+	Debug("  prepareStatistics: " .. tostring(event))
+
+	-- release all child widgets from the container
+	statisticsPanel:ReleaseChildren()
+
+	local groups = {}
+
+	local sessions = LA:getSessions()
+	for i,v in ipairs(sessions) do
+		local sessionMapID = v["mapID"]
+		local sessionStart = v["start"];
+		local sessionEnd = v["end"];
+		local liv = v["liv"]
+		local player = v["player"]
+
+		if sessionEnd ~= nil then
+			-- prepare group name
+			local grpID
+			local groupName
+			if sessionMapID ~= nil then
+				grpID = "grp" .. tostring(sessionMapID)
+				groupName = GetMapNameByID(sessionMapID)
+			else
+				grpID = "grgUndefined"
+				groupName = "Undefined"
+			end
+
+			-- get group or create new if no group exists
+			local grp = groups[grpID]
+			if grp == nil then
+				Debug("    add group " .. groupName)
+				-- create group
+				grp = AceGUI:Create("InlineGroup")
+				grp:SetTitle(groupName)
+				grp:SetFullWidth(true)
+				statisticsPanel:AddChild(grp) -- add to frame
+
+				groups[grpID] = grp -- remember the new created grp
+			end
+
+			-- add row container
+			local row = AceGUI:Create("SimpleGroup")
+			row:SetFullWidth(true)
+			row:SetLayout("flow")
+			grp:AddChild(row)
+
+			-- session start
+			local ss = AceGUI:Create("Label")
+			ss:SetText(date("%x", sessionStart))
+			ss:SetWidth(85)
+			row:AddChild(ss)
+
+			-- player
+			local p = AceGUI:Create("Label")
+			p:SetText(player)
+			p:SetWidth(170)
+			row:AddChild(p)
+
+			-- duration
 			local sessionDuration = sessionEnd - sessionStart
-			grp.args["sessionDuration" .. (baseorder+1)] = {
+			local d = AceGUI:Create("Label")
+			d:SetText(SecondsToTime(sessionDuration))
+			d:SetWidth(170)
+			d.label:SetJustifyH("RIGHT")
+			row:AddChild(d)
+
+			-- looted item value
+			local formattedLiv = LA:FormatTextMoney(liv) or 0
+
+
+		end
+	end
+
+
+end
+
+function getStatisticGroups()
+	Debug("  getStatisticGroups")
+
+	local groups = {}
+
+	local baseorder = 100;
+
+	local i = 0
+
+	local sessions = LA:getSessions()
+	for i,v in ipairs(sessions) do
+		local sessionMapID = v["mapID"]
+		local sessionStart = v["start"];
+		local sessionEnd = v["end"];
+		local liv = v["liv"]
+		
+		if sessionEnd ~= nil then
+			-- group name
+			local grpID
+			local groupName
+			if sessionMapID ~= nil then
+				grpID = "grp" .. tostring(sessionMapID)
+				groupName = GetMapNameByID(sessionMapID)
+			else
+				grpID = "grgUndefined"
+				groupName = "Undefined"
+			end
+
+			-- get group or create new if no group exists
+			local grp = groups[grpID]
+			if grp == nil then
+				grp = {
+					type = "group",
+					order = 20,
+					name = groupName,
+					args = {
+					},
+					plugins = {
+					},
+				}
+				groups[grpID] = grp
+			end
+
+			-- add row to group
+			local row = {
+				type = "group",
+				order = 10,
+				inline = true,
+				args = {
+				},
+				plugins = {
+				},
+			}
+
+			grp.args["row" .. (baseorder+i)] = row
+
+			-- session start (date)
+			row.args["sessionStart" .. (baseorder+i)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 1, 
+				name = date("%x", sessionStart),
+				width = "normal", 
+			}
+
+			-- duration
+			local sessionDuration = sessionEnd - sessionStart
+			row.args["sessionDuration" .. (baseorder+1)] = {
 				type = "description", 
 				order = baseorder + (i * 10) + 2, 
 				name = SecondsToTime(sessionDuration),
 				width = "normal", 
 			}
 			
+			-- looted item value
 			local formattedLiv = LA:FormatTextMoney(liv) or 0
-			grp.args["liv" .. (baseorder+1)] = {
+			row.args["liv" .. (baseorder+1)] = {
 				type = "description", 
 				order = baseorder + (i * 10) + 3, 
 				name = formattedLiv,
-				width = "half", 
+				width = "normal", 
 			}
 
+			-- new line
+			row.args["newline" .. (baseorder+i)] = {
+				order = baseorder + (i * 10) + 4,
+				type = "description",
+				name = "",
+				width = "full",
+				cmdHidden = true,
+			}
+
+			-- player
+			row.args["player" .. (baseorder+i)] = {
+				type = "description", 
+				order = baseorder + (i * 10) + 5, 
+				name = v["player"] or "",
+				width = "double", 
+			}
+
+			-- liv / hour
 			local factor = 3600
 			if sessionDuration < factor then
 				factor = sessionDuration
 			end
+
 			local livGold = floor(liv/10000)
 			local livGoldPerHour = floor(livGold/sessionDuration*factor)
-			grp.args["livPerHour" .. (baseorder+1)] = {
+			row.args["livPerHour" .. (baseorder+1)] = {
 				type = "description", 
-				order = baseorder + (i * 10) + 4, 
+				order = baseorder + (i * 10) + 6, 
 				name = livGoldPerHour .. "|cffffd100g|r/h",
-				width = "half", 
+				width = "normal", 
 			}
 --[[
-			grp.args["delete" .. (baseorder+1)] = {
+			row.args["delete" .. (baseorder+1)] = {
 				type = "execute",
 				order = baseorder + (i * 10) + 4,
 				func = deleteStatisticEntry(sessionStart),
@@ -500,17 +700,15 @@ function getStatisticGroups()
 			}
 ]]
 			-- new line
-			grp.args["newline" .. (baseorder+i)] = {
-				order = baseorder + (i * 10) + 6,
+			row.args["newline" .. (baseorder+i)] = {
+				order = baseorder + (i * 10) + 7,
 				type = "description",
 				name = "",
 				width = "full",
 				cmdHidden = true,
 			}
-		else
-			-- remove unclosed sessions (clean up)
-			--sessions[i] = nil
 		end
+
 		i = i + 1
 		baseorder = baseorder + 200
 	end

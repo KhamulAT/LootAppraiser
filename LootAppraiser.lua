@@ -1057,7 +1057,7 @@ function addItemValue2LootedItemValue(itemValue)
 	-- save current session (for statistics)
 	if totalItemValue > 0 then
 		currentSession["liv"] = totalItemValue
-		currentSession["end"] = time() -- fallback if we found no way to identify session
+		currentSession["end"] = time() -- fallback if we found no way to identify session end
 	end
 end
 
