@@ -17,7 +17,7 @@ LA.METADATA = {
 -- frames
 local START_SESSION_PROMPT, MAIN_UI 
 -- single elements
-local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION
+local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -202,7 +202,7 @@ function LA:OnEnable()
 end
 
 function LA:OnDisable()
-
+	-- nothing to do
 end
 
 --[[-------------------------------------------------------------------------------------
@@ -292,6 +292,9 @@ function initDB()
 				tsmGroupEnabled = false,
 				tsmGroup = "LootAppraiser`Blacklist",	
 				addBlacklistedItems2DestroyTrash = false,			
+			},
+			sessionData = {
+				groupBy = "datetime",
 			},
 		},
 		global = {			
@@ -714,7 +717,7 @@ function ShowMainWindow()
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
 	MAIN_UI:SetWidth(400) 
-	MAIN_UI:SetHeight(350)
+	MAIN_UI:SetHeight(370)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
@@ -746,7 +749,7 @@ function ShowMainWindow()
 
 	local GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
 	GUI_SCROLLCONTAINER:SetFullWidth(true)
-	GUI_SCROLLCONTAINER:SetHeight(150)
+	GUI_SCROLLCONTAINER:SetHeight(140)
 	GUI_SCROLLCONTAINER:SetLayout("Fill")
 	GUI_SCROLLCONTAINER.frame:SetBackdrop(backdrop)
 	GUI_SCROLLCONTAINER.frame:SetBackdropColor(0, 0, 0)
@@ -779,6 +782,22 @@ function ShowMainWindow()
 	VALUE_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
 	MAIN_UI:AddChild(VALUE_SESSIONDURATION)
+
+	-- current zone (session zone)
+	local LABEL_ZONE = AceGUI:Create("Label")
+	LABEL_ZONE:SetText("Zone:")
+	LABEL_ZONE:SetWidth(200)
+	LABEL_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	MAIN_UI:AddChild(LABEL_ZONE)
+
+	VALUE_ZONE = AceGUI:Create("Label")
+	VALUE_ZONE:SetText(" ")
+	VALUE_ZONE:SetWidth(160)
+	VALUE_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	VALUE_ZONE.label:SetJustifyH("RIGHT")
+	MAIN_UI:AddChild(VALUE_ZONE)	
+
+	refreshZoneInfo()
 
 	-- looted item value --
 	-- format the total looted item value...
@@ -1108,7 +1127,36 @@ function addItem2LootCollectedList(itemID, link, quantity, marketValue, notewort
 	lootCollectedLastEntry = LABEL
 end
 
+
+--[[-------------------------------------------------------------------------------------
+-- refresh the zone informations
+---------------------------------------------------------------------------------------]]
+function refreshZoneInfo()
+	local zoneInfo = ""
+
+	-- current zone
+	local currentMapID = GetCurrentMapAreaID()
+	if currentMapID ~= nil then
+		zoneInfo = zoneInfo .. GetMapNameByID(currentMapID)
+	end
+
+	-- session zone (if a session is running)
+	if currentSession ~= nil and currentSession["mapID"] ~= nil then
+		local sessionMapID = currentSession["mapID"]
+
+		if sessionMapID ~= nil then
+			local zoneName = GetMapNameByID(sessionMapID)
+
+			zoneInfo = zoneInfo .. " (" .. zoneName .. ")"
+		end
+	end
+
+	VALUE_ZONE:SetText(zoneInfo)
+end
+
+--[[-------------------------------------------------------------------------------------
 -- refresh the status bar with the current settings
+---------------------------------------------------------------------------------------]]
 function LA:refreshStatusText()
 	if MAIN_UI ~= nil then
 		-- prepare status text

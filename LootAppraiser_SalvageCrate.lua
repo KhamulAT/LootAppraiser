@@ -147,10 +147,16 @@ function onBagUpdate(event, bagID)
 				newItems[key] = newValue -- store so we only process once
 
 				-- prepare input for processItem(...)
-				local oldValueTokens = split(oldValue, ":")
+				local oldItemId = nil
+				local oldCount = 0
 
-				local oldItemId = oldValueTokens[1]
-				local oldCount = tonumber(oldValueTokens[2]) or 0
+				if oldValue ~= nil then
+					local oldValueTokens = split(oldValue, ":")
+
+					oldItemId = oldValueTokens[1]
+					oldCount = tonumber(oldValueTokens[2]) or 0
+				end
+
 
 				if oldItemId ~= newItemID then
 					Debug("        item on this pos changed: " .. tostring(oldItemId) .. " vs. " .. tostring(newItemID) .. " -> set count to 0")
