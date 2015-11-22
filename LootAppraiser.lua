@@ -73,7 +73,7 @@ local ITEM_FILTER_BLACKLIST = {
 	["20865"] = true, ["20874"] = true, ["20866"] = true, ["20868"] = true, ["20869"] = true, ["20870"] = true,
 	["20871"] = true, ["20872"] = true, ["20873"] = true, ["20867"] = true, ["20875"] = true, ["20876"] = true, ["20877"] = true,
 	["20878"] = true, ["20879"] = true, ["20881"] = true, ["20882"] = true, ["19183"] = true, ["18640"] = true, ["8623"]  = true,
-	["114120"] = true, ["114116"] = true
+	["114120"] = true, ["114116"] = true, ["9243"] = true
 }
 
 LA.QUALITY_FILTER = { -- little hack to sort them in the menu
@@ -274,10 +274,27 @@ function initDB()
 				minimapPos = 220,
 				radius = 80,
 			},
+			mainUI = {
+				["height"] = 400,
+				["top"] = (parentHeight-50),
+				["left"] = 50,
+				["width"] = 400,
+			},
 			priceSource = "DBGlobalMarketAvg",
 			qualityFilter = "1",
 			goldAlertThreshold = "300",
 			ignoreRandomEnchants = true,
+			general = {
+				display = {
+					showZoneInfo = true,
+					showSessionDuration = true,
+					showLootedItemValue = true,
+					showLootedItemValuePerHour = true,
+					showCurrencyLooted = true,
+					showItemsLooted = true,
+					showNoteworthyItems = true,
+				},
+			},
 			notification = {
 				sink = {},
 				enableToasts = true,
@@ -436,7 +453,7 @@ function handleItemLooted(itemLink, itemID, quantity)
 			end
 
 			-- add item to current session
-			local itemCountCurrentSession = currentSession.noteworthyItems[itemID]
+			local itemCountCurrentSession = currentSession.noteworthyItems[tostring(itemID)]
 			if itemCountCurrentSession == nil then
 				currentSession.noteworthyItems[tostring(itemID)] = quantity
 			else
@@ -449,6 +466,9 @@ function handleItemLooted(itemLink, itemID, quantity)
 				local soundName = LA.db.profile.notification.soundName or "None"
 				PlaySoundFile(LSM:Fetch("sound", soundName))
 			end
+
+			-- check current mapID with session mapID
+			Debug("  current vs. session mapID: " .. GetCurrentMapAreaID() .. " vs. " .. currentSession["mapID"])
 		end
 	else
 		Debug("  item quality to low -> ignored")
@@ -464,11 +484,13 @@ function handleCurrencyLooted(lootedCopper)
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		-- format the total looted currency...
-		local formattedValue = LA:FormatTextMoney(totalLootedCurrency) or 0
+		if isShowCurrencyLootedEnabled() then
+			-- format the total looted currency...
+			local formattedValue = LA:FormatTextMoney(totalLootedCurrency) or 0
 
-		-- add to main ui
-		VALUE_TOTALCURRENCY:SetText(formattedValue)
+			-- add to main ui
+			VALUE_TOTALCURRENCY:SetText(formattedValue)
+		end
 	end
 end
 
@@ -596,7 +618,7 @@ function StartSession(openLootAppraiser)
 	else
 		LA:Print("Session started")
 		Debug("  mapID=" .. GetCurrentMapAreaID() .. " (" .. GetMapNameByID(GetCurrentMapAreaID()) .. ")")
-		printSessions() -- TODO remove
+		--printSessions() -- TODO remove
 
 		sessionIsRunning = true
 
@@ -702,6 +724,20 @@ function DisableLootAppraiser()
 	savedLoot = {}
 end
 
+--[[-------------------------------------------------------------------------------------
+-- refresh the main ui
+---------------------------------------------------------------------------------------]]
+function LA:refreshMainWindow()
+	if MAIN_UI ~= nil then
+		--Debug("refreshMainWindow")
+		MAIN_UI:Hide()
+		--MAIN_UI:DoLayout()
+		--MAIN_UI:Show()
+		MAIN_UI = nil
+		ShowMainWindow()
+	end
+end
+
 -- main window --
 local total = 0
 function ShowMainWindow() 
@@ -712,12 +748,17 @@ function ShowMainWindow()
 		return
 	end 
 
+	local labelWidth = 120
+	local valueWidth = 240
+
+	local mainUiHeight = 270
+	local rowHeight = 16
+
 	MAIN_UI = AceGUI:Create("Frame")
-	-- MAIN_UI:SetStatusTable(LootAppraiser.db.profile.mainUI) TODO
+	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
 	MAIN_UI:SetWidth(400) 
-	MAIN_UI:SetHeight(370)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
@@ -762,104 +803,129 @@ function ShowMainWindow()
 
 	addSpacer(MAIN_UI)
 
-	-- headline
-	--[[
-	local HEADING_SESSION = AceGUI:Create("Heading")
-	HEADING_SESSION:SetText("Current Session")
-	MAIN_UI:AddChild(HEADING_SESSION)
-	]]
+	-- current zone (session zone)
+	if isShowZoneInfoEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
+
+		local LABEL_ZONE = AceGUI:Create("Label")
+		LABEL_ZONE:SetText("Zone:")
+		LABEL_ZONE:SetWidth(labelWidth)
+		LABEL_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_ZONE)
+
+		VALUE_ZONE = AceGUI:Create("Label")
+		VALUE_ZONE:SetText(" ")
+		VALUE_ZONE:SetWidth(valueWidth)
+		VALUE_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_ZONE.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_ZONE)	
+
+		refreshZoneInfo()
+	end
 
 	-- session duration
-	local LABEL_SESSIONDURATION = AceGUI:Create("Label")
-	LABEL_SESSIONDURATION:SetText("Session Duration:")
-	LABEL_SESSIONDURATION:SetWidth(200)
-	LABEL_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_SESSIONDURATION)
+	if isShowSessionDurationEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
 
-	VALUE_SESSIONDURATION = AceGUI:Create("Label")
-	VALUE_SESSIONDURATION:SetText(" ")
-	VALUE_SESSIONDURATION:SetWidth(160)
-	VALUE_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_SESSIONDURATION)
+		local LABEL_SESSIONDURATION = AceGUI:Create("Label")
+		LABEL_SESSIONDURATION:SetText("Session Duration:")
+		LABEL_SESSIONDURATION:SetWidth(labelWidth)
+		LABEL_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_SESSIONDURATION)
 
-	-- current zone (session zone)
-	local LABEL_ZONE = AceGUI:Create("Label")
-	LABEL_ZONE:SetText("Zone:")
-	LABEL_ZONE:SetWidth(200)
-	LABEL_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_ZONE)
+		VALUE_SESSIONDURATION = AceGUI:Create("Label")
+		VALUE_SESSIONDURATION:SetText(" ")
+		VALUE_SESSIONDURATION:SetWidth(valueWidth)
+		VALUE_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_SESSIONDURATION)
 
-	VALUE_ZONE = AceGUI:Create("Label")
-	VALUE_ZONE:SetText(" ")
-	VALUE_ZONE:SetWidth(160)
-	VALUE_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_ZONE.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_ZONE)	
-
-	refreshZoneInfo()
+		refreshSessionDuration()
+	end
 
 	-- looted item value --
 	-- format the total looted item value...
-	local formattedTotalItemValue = LA:FormatTextMoney(totalItemValue) or 0
+	if isShowLootedItemValueEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
+		
+		local livValue = LA:FormatTextMoney(totalItemValue) or 0
+		if isShowLootedItemValuePerHourEnabled() then
+			livValue = livValue .. " (" .. lootedItemValuePerHour .. "|cffffd100g|r/h)"
+		end
 
-	local LABEL_LOOTEDITEMVALUE = AceGUI:Create("Label")
-	LABEL_LOOTEDITEMVALUE:SetText("Looted Item Value:")
-	LABEL_LOOTEDITEMVALUE:SetWidth(200)
-	LABEL_LOOTEDITEMVALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_LOOTEDITEMVALUE)
+		local LABEL_LOOTEDITEMVALUE = AceGUI:Create("Label")
+		LABEL_LOOTEDITEMVALUE:SetText("Looted Item Value:")
+		LABEL_LOOTEDITEMVALUE:SetWidth(labelWidth)
+		LABEL_LOOTEDITEMVALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_LOOTEDITEMVALUE)
 
-	VALUE_LOOTEDITEMVALUE = AceGUI:Create("Label")
-	VALUE_LOOTEDITEMVALUE:SetText(formattedTotalItemValue .. " (" .. lootedItemValuePerHour .. "|cffffd100g|r/h)")
-	VALUE_LOOTEDITEMVALUE:SetWidth(160)
-	VALUE_LOOTEDITEMVALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_LOOTEDITEMVALUE.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_LOOTEDITEMVALUE)
+		VALUE_LOOTEDITEMVALUE = AceGUI:Create("Label")
+		VALUE_LOOTEDITEMVALUE:SetText(livValue)
+		VALUE_LOOTEDITEMVALUE:SetWidth(valueWidth)
+		VALUE_LOOTEDITEMVALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_LOOTEDITEMVALUE.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_LOOTEDITEMVALUE)
+	end
 
 	-- currency looted --
 	-- format the total looted currency...
-	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
+	if isShowCurrencyLootedEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
+		
+		local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
 
-	local LABEL_TOTALCURRENCY = AceGUI:Create("Label")
-	LABEL_TOTALCURRENCY:SetText("Currency Looted:")
-	LABEL_TOTALCURRENCY:SetWidth(200)
-	LABEL_TOTALCURRENCY:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_TOTALCURRENCY)
+		local LABEL_TOTALCURRENCY = AceGUI:Create("Label")
+		LABEL_TOTALCURRENCY:SetText("Currency Looted:")
+		LABEL_TOTALCURRENCY:SetWidth(labelWidth)
+		LABEL_TOTALCURRENCY:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_TOTALCURRENCY)
 
-	VALUE_TOTALCURRENCY = AceGUI:Create("Label")
-	VALUE_TOTALCURRENCY:SetText(formattedTotalLootedCurrency)
-	VALUE_TOTALCURRENCY:SetWidth(160)
-	VALUE_TOTALCURRENCY:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_TOTALCURRENCY.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_TOTALCURRENCY)
+		VALUE_TOTALCURRENCY = AceGUI:Create("Label")
+		VALUE_TOTALCURRENCY:SetText(formattedTotalLootedCurrency)
+		VALUE_TOTALCURRENCY:SetWidth(valueWidth)
+		VALUE_TOTALCURRENCY:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_TOTALCURRENCY.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_TOTALCURRENCY)
+	end
 
 	-- items looted (counter) --
-	local LABEL_LOOTEDITEMCOUNTER = AceGUI:Create("Label")
-	LABEL_LOOTEDITEMCOUNTER:SetText("Items Looted ")
-	LABEL_LOOTEDITEMCOUNTER:SetWidth(200)
-	LABEL_LOOTEDITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_LOOTEDITEMCOUNTER)
+	if isShowItemsLootedEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
+		
+		local LABEL_LOOTEDITEMCOUNTER = AceGUI:Create("Label")
+		LABEL_LOOTEDITEMCOUNTER:SetText("Items Looted ")
+		LABEL_LOOTEDITEMCOUNTER:SetWidth(labelWidth)
+		LABEL_LOOTEDITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_LOOTEDITEMCOUNTER)
 
-	VALUE_LOOTEDITEMCOUNTER = AceGUI:Create("Label")
-	VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
-	VALUE_LOOTEDITEMCOUNTER:SetWidth(160)
-	VALUE_LOOTEDITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_LOOTEDITEMCOUNTER.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_LOOTEDITEMCOUNTER)
+		VALUE_LOOTEDITEMCOUNTER = AceGUI:Create("Label")
+		VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+		VALUE_LOOTEDITEMCOUNTER:SetWidth(valueWidth)
+		VALUE_LOOTEDITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_LOOTEDITEMCOUNTER.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_LOOTEDITEMCOUNTER)
+	end
 
 	-- noteworthy items (counter) --
-	local LABEL_NOTEWORTHYITEMCOUNTER = AceGUI:Create("Label")
-	LABEL_NOTEWORTHYITEMCOUNTER:SetText("Noteworthy Items:")
-	LABEL_NOTEWORTHYITEMCOUNTER:SetWidth(200)
-	LABEL_NOTEWORTHYITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	MAIN_UI:AddChild(LABEL_NOTEWORTHYITEMCOUNTER)
+	if isShowNoteworthyItemsEnabled() then
+		mainUiHeight = mainUiHeight + rowHeight
+		
+		local LABEL_NOTEWORTHYITEMCOUNTER = AceGUI:Create("Label")
+		LABEL_NOTEWORTHYITEMCOUNTER:SetText("Noteworthy Items:")
+		LABEL_NOTEWORTHYITEMCOUNTER:SetWidth(labelWidth)
+		LABEL_NOTEWORTHYITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		MAIN_UI:AddChild(LABEL_NOTEWORTHYITEMCOUNTER)
 
-	VALUE_NOTEWORTHYITEMCOUNTER = AceGUI:Create("Label")
-	VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
-	VALUE_NOTEWORTHYITEMCOUNTER:SetWidth(160)
-	VALUE_NOTEWORTHYITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE_NOTEWORTHYITEMCOUNTER.label:SetJustifyH("RIGHT")
-	MAIN_UI:AddChild(VALUE_NOTEWORTHYITEMCOUNTER)
+		VALUE_NOTEWORTHYITEMCOUNTER = AceGUI:Create("Label")
+		VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+		VALUE_NOTEWORTHYITEMCOUNTER:SetWidth(valueWidth)
+		VALUE_NOTEWORTHYITEMCOUNTER:SetFont("Fonts\\FRIZQT__.TTF", 12)
+		VALUE_NOTEWORTHYITEMCOUNTER.label:SetJustifyH("RIGHT")
+		MAIN_UI:AddChild(VALUE_NOTEWORTHYITEMCOUNTER)
+	end
+
+	-- main ui height
+	MAIN_UI:SetHeight(mainUiHeight)
 
 	addSpacer(MAIN_UI)
 
@@ -885,6 +951,8 @@ function ShowMainWindow()
 end
 
 function refreshSessionDuration( ... )
+	if not isShowSessionDurationEnabled() then return end
+
 	if isSessionRunning() then
 		local delta =  time() - currentSession["start"]
 
@@ -907,14 +975,18 @@ end
 -- Event handler for button 'destroy trash'
 --------------------------------------------------------------------------]]
 function onBtnDestroyTrashClick()
+	--Debug("  onBtnDestroyTrashClick")
+
 	local destroyCounter = 0
 
 	-- prepare blacklist (if activated for destroy trash)
-	local blacklistItems
+	--[[
+	local blacklistItems = ITEM_FILTER_BLACKLIST
 	if isDestroyBlacklistedItems() then
 		-- preload blacklist from TSM group
 	 	blacklistItems = LA:GetGroupItems(getTsmGroup4Blacklist())
 	end
+	]]
 
 	for bag = 0, 4 do
 		for slot = 1, GetContainerNumSlots(bag) do
@@ -929,9 +1001,12 @@ function onBtnDestroyTrashClick()
 			end
 
 			-- blacklist
+			--Debug("    isDestroyBlacklistedItems=" .. tostring(isDestroyBlacklistedItems()))
 			if link and isDestroyBlacklistedItems() then
 				local itemID = LA:GetItemID(link)
-				if LA:isItemInList(itemID, blacklistItems) then
+				--if LA:isItemInList(itemID, blacklistItems) then
+				--Debug("    isItemBlacklisted=" .. tostring(isItemBlacklisted(itemID)))
+				if isItemBlacklisted(itemID) then
 					PickupContainerItem(bag, slot)
 					DeleteCursorItem()
 
@@ -1009,6 +1084,8 @@ end
 -- calculate looted item value / hour and refresh UI with the new value
 ---------------------------------------------------------------------------------------]]
 function refreshLivPerHour()
+	if not isShowLootedItemValuePerHourEnabled() then return end
+
 	-- calc lootedItemValuePerHour
 	local currentTime = time()
 
@@ -1040,8 +1117,10 @@ function incNoteworthyItemCounter(quantity)
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		-- add to main ui
-		VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+		if isShowNoteworthyItemsEnabled() then
+			-- add to main ui
+			VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+		end
 	end
 end
 
@@ -1053,8 +1132,10 @@ function incLootedItemCounter(quantity)
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		-- add to main ui
-		VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+		if isShowItemsLootedEnabled() then
+			-- add to main ui
+			VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+		end
 	end
 end
 
@@ -1066,11 +1147,15 @@ function addItemValue2LootedItemValue(itemValue)
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		-- format the total looted item value...
-		local formattedTotalItemValue = LA:FormatTextMoney(totalItemValue) or 0
+		if isShowLootedItemValueEnabled() then
+			local livValue = LA:FormatTextMoney(totalItemValue) or 0
+			if isShowLootedItemValuePerHourEnabled() then
+				livValue = livValue .. " (" .. lootedItemValuePerHour .. "|cffffd100g|r/h)"
+			end
 
-		-- add to main ui
-		VALUE_LOOTEDITEMVALUE:SetText(formattedTotalItemValue)
+			-- add to main ui
+			VALUE_LOOTEDITEMVALUE:SetText(livValue)
+		end
 	end
 
 	-- save current session (for statistics)
@@ -1132,12 +1217,14 @@ end
 -- refresh the zone informations
 ---------------------------------------------------------------------------------------]]
 function refreshZoneInfo()
+	if not isShowZoneInfoEnabled() then return end
+
 	local zoneInfo = ""
 
 	-- current zone
 	local currentMapID = GetCurrentMapAreaID()
 	if currentMapID ~= nil then
-		zoneInfo = zoneInfo .. GetMapNameByID(currentMapID)
+		--zoneInfo = zoneInfo .. GetMapNameByID(currentMapID)
 	end
 
 	-- session zone (if a session is running)
@@ -1147,7 +1234,8 @@ function refreshZoneInfo()
 		if sessionMapID ~= nil then
 			local zoneName = GetMapNameByID(sessionMapID)
 
-			zoneInfo = zoneInfo .. " (" .. zoneName .. ")"
+			--zoneInfo = zoneInfo .. " (" .. zoneName .. ")"
+			zoneInfo = zoneInfo ..  zoneName
 		end
 	end
 
@@ -1211,7 +1299,8 @@ function isBlacklistTsmGroupEnabled()
 end
 
 function isDestroyBlacklistedItems()
-	if isBlacklistTsmGroupEnabled() and LA.db.profile.addBlacklistedItems2DestroyTrash then
+	--if isBlacklistTsmGroupEnabled() and LA.db.profile.addBlacklistedItems2DestroyTrash then
+	if LA.db.profile.blacklist.addBlacklistedItems2DestroyTrash then
 		return true
 	end
 	return false
@@ -1299,6 +1388,62 @@ function getSellTrashTsmGroup()
 	end
 
 	return LA.db.profile.sellTrash.tsmGroup
+end
+
+function isShowZoneInfoEnabled()
+	if LA.db.profile.general.display.showZoneInfo == nil then
+		LA.db.profile.general.display.showZoneInfo = dbDefaults.profile.general.display.showZoneInfo
+	end
+
+	return LA.db.profile.general.display.showZoneInfo
+end
+
+function isShowSessionDurationEnabled()
+	if LA.db.profile.general.display.showSessionDuration == nil then
+		LA.db.profile.general.display.showSessionDuration = dbDefaults.profile.general.display.showSessionDuration
+	end
+
+	return LA.db.profile.general.display.showSessionDuration
+end
+
+function isShowLootedItemValueEnabled()
+	if LA.db.profile.general.display.showLootedItemValue == nil then
+		LA.db.profile.general.display.showLootedItemValue = dbDefaults.profile.general.display.showLootedItemValue
+	end
+
+	return LA.db.profile.general.display.showLootedItemValue
+end
+
+function isShowLootedItemValuePerHourEnabled()
+	if LA.db.profile.general.display.showLootedItemValuePerHour == nil then
+		LA.db.profile.general.display.showLootedItemValuePerHour = dbDefaults.profile.general.display.showLootedItemValuePerHour
+	end
+
+	return LA.db.profile.general.display.showLootedItemValuePerHour
+end
+
+function isShowCurrencyLootedEnabled()
+	if LA.db.profile.general.display.showCurrencyLooted == nil then
+		LA.db.profile.general.display.showCurrencyLooted = dbDefaults.profile.general.display.showCurrencyLooted
+	end
+
+	return LA.db.profile.general.display.showCurrencyLooted
+end
+
+function isShowItemsLootedEnabled()
+	if LA.db.profile.general.display.showItemsLooted == nil then
+		LA.db.profile.general.display.showItemsLooted = dbDefaults.profile.general.display.showItemsLooted
+	end
+
+	return LA.db.profile.general.display.showItemsLooted
+end
+
+function isShowNoteworthyItemsEnabled()
+	if LA.db.profile.general.display.showNoteworthyItems == nil then
+		LA.db.profile.general.display.showNoteworthyItems = dbDefaults.profile.general.display.showNoteworthyItems
+	end
+
+	return LA.db.profile.general.display.showNoteworthyItems
 end
 
 --[[-------------------------------------------------------------------------------------

@@ -119,7 +119,7 @@ function onBagUpdate(event, bagID)
 	local currentTime = time()
 
 	if not openEndTime or currentTime - openEndTime >= 3 then
-		Debug("  loot window expired...")
+		--Debug("  loot window expired...")
 		return
 	end
 

@@ -69,7 +69,7 @@ local options = {
 						ignoreRandomEnchants = {
 							type = "toggle",
 							order = 40,
-							name = " Ignore random enchants on items",
+							name = "Ignore random enchants on items",
 							desc = "Ignore random enchants on items (like ...of the Bear) and show only the base item",
 							width = "double",
 							set = function(info, value) 
@@ -79,6 +79,71 @@ local options = {
 								end
 								LA.db.profile[info[#info]] = value;
 							end,
+						},
+						displayOptions = {
+							type = "group",
+							order = 50,
+							name = "Display",
+							inline = true,
+							get = function(info) 
+								return LA.db.profile.general.display[info[#info]] 
+							end,
+							set = function(info, value) 
+								LA.db.profile.general.display[info[#info]] = value
+								LA:refreshMainWindow()
+							end,
+							args = {
+								showZoneInfo = {
+									type = "toggle",
+									order = 10,
+									name = "Show Zone Information",
+									desc = "Show Zone Information",
+									width = "double",
+								},
+								showSessionDuration = {
+									type = "toggle",
+									order = 20,
+									name = "Show 'Session Duration'",
+									desc = "Show 'Session Duration'",
+									width = "double",
+								},
+								showLootedItemValue = {
+									type = "toggle",
+									order = 30,
+									name = "Show 'Looted Item Value'",
+									desc = "Show 'Looted Item Value'",
+									width = "double",
+								},
+								showLootedItemValuePerHour = {
+									type = "toggle",
+									order = 40,
+									name = "Show 'Looted Item Value' Per Hour",
+									desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)",
+									width = "double",
+								},
+								showCurrencyLooted = {
+									type = "toggle",
+									order = 50,
+									name = "Show 'Currency Looted'",
+									desc = "Show 'Currency Looted'",
+									width = "double",
+								},
+								showItemsLooted = {
+									type = "toggle",
+									order = 60,
+									name = "Show 'Items Looted'",
+									desc = "Show 'Items Looted'",
+									width = "double",
+								},
+								showNoteworthyItems = {
+									type = "toggle",
+									order = 70,
+									name = "Show 'Noteworthy Items'",
+									desc = "Show 'Noteworthy Items'",
+									width = "double",
+								},
+							},
+							plugins = {},
 						},
 					},
 				},
@@ -202,6 +267,25 @@ local options = {
 							name = "The black list is intended for all worthless items. They can not be sold to the vendor and the auction value is only theoretical (like the idols and scarabs from AQ20). Therefore, these objects are ignored in the calculation of the looted itemvalue. Note: TSM uses ` as group seperator.",
 							width = "full"
 						},
+						addBlacklistedItems2DestroyTrash = {
+							type = "toggle",
+							order = 15,
+							name = " Add blacklisted items to the destroy trash button.",
+							desc = "Adds all blacklisted items from the TSM group to the destroyabel items list.",
+							width = "full",
+							--[[
+							disabled = function()
+								return not (LA.db.profile.blacklist.tsmGroupEnabled == true)
+							end,
+							]]
+							set = function(info, value) 
+								local oldValue = LA.db.profile[info[#info]]
+								if oldValue ~= value then
+									LA:Print("Add blacklisted items to destroy trash set: " .. tostring(value) .. ".")
+								end
+								LA.db.profile.blacklist[info[#info]] = value;
+							end,
+						},
 						tsmGroupEnabled = {
 							type = "toggle",
 							order = 20,
@@ -238,23 +322,6 @@ local options = {
 									return false
 								end
 								return true
-							end,
-						},
-						addBlacklistedItems2DestroyTrash = {
-							type = "toggle",
-							order = 40,
-							name = " Add blacklisted items to the destroy trash button.",
-							desc = "Adds all blacklisted items from the TSM group to the destroyabel items list.",
-							width = "full",
-							disabled = function()
-								return not (LA.db.profile.blacklist.tsmGroupEnabled == true)
-							end,
-							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
-								if oldValue ~= value then
-									LA:Print("Add blacklisted items to destroy trash set: " .. tostring(value) .. ".")
-								end
-								LA.db.profile.blacklist[info[#info]] = value;
 							end,
 						},
 
@@ -346,80 +413,6 @@ local options = {
 			inline = true,
 			args = {},
 		},
-		test = {
-			type = "group", 
-			name = LootAppraiser .. " Test", 
-			get = function(info) 
-				return LA.db.profile[info[#info]] 
-			end,
-			set = function(info, value) 
-				LA.db.profile[info[#info]] = value; 
-			end,
-			childGroups = "select",
-			inline = true,
-			args = {
-				generalText1 = {
-					type = "description", 
-					order = 10, 
-					name = "Label 1", 
-					width = "full", 
-				},
-				generalText2 = {
-					type = "description", 
-					order = 20, 
-					name = "Label 2", 
-					width = "full", 
-				},
-				generalText3 = {
-					type = "description", 
-					order = 30, 
-					name = "Label 3", 
-					width = "full", 
-				},
-				generalText4 = {
-					type = "description", 
-					order = 40, 
-					name = "Label 4", 
-					width = "full", 
-				},
-				generalText5 = {
-					type = "description", 
-					order = 50, 
-					name = "Label 5", 
-					width = "full", 
-				},
-				generalText6 = {
-					type = "description", 
-					order = 60, 
-					name = "Label 6", 
-					width = "full", 
-				},
-				generalText7 = {
-					type = "description", 
-					order = 70, 
-					name = "Label 7", 
-					width = "full", 
-				},
-				generalText8 = {
-					type = "description", 
-					order = 80, 
-					name = "Label 8", 
-					width = "full", 
-				},
-				generalText9 = {
-					type = "description", 
-					order = 90, 
-					name = "Label 9", 
-					width = "full", 
-				},
-				generalText10 = {
-					type = "description", 
-					order = 100, 
-					name = "Label 10", 
-					width = "full", 
-				},
-			},
-		},
 	}, 
 }
 
@@ -443,17 +436,13 @@ function Config:OnInitialize()
 	-- general LootAppraiser configuration
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser, options.args.general)
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Statistic", options.args.statistic, LootAppraiser)
-	--AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Test", options.args.test, LootAppraiser)
-	--AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Test", options.args.test, LootAppraiser)
 
 	AceConfigDialog:AddToBlizOptions(LootAppraiser)
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
-	--AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser)
 
 	options.args.statistic.args = getStatisticGroups() -- prepare statistic groups
 
 	--testFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser) -- test
-
 
 	--test()
 
@@ -654,7 +643,7 @@ function getOrCreateZoneGrp(groups, session, order)
 	if zoneGrp == nil then
 		zoneGrp = {
 			type = "group",
-			order = order,
+			--order = order,
 			name = groupName,
 			args = {
 				-- group by dropdown
@@ -740,7 +729,7 @@ function createSessionGrp(session, order)
 
 	local sessionGrp = {
 		type = "group",
-		order = order,
+		--order = order,
 		name = name,
 		args = {
 		},
