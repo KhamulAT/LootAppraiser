@@ -80,71 +80,6 @@ local options = {
 								LA.db.profile[info[#info]] = value;
 							end,
 						},
-						displayOptions = {
-							type = "group",
-							order = 50,
-							name = "Display",
-							inline = true,
-							get = function(info) 
-								return LA.db.profile.general.display[info[#info]] 
-							end,
-							set = function(info, value) 
-								LA.db.profile.general.display[info[#info]] = value
-								LA:refreshMainWindow()
-							end,
-							args = {
-								showZoneInfo = {
-									type = "toggle",
-									order = 10,
-									name = "Show Zone Information",
-									desc = "Show Zone Information",
-									width = "double",
-								},
-								showSessionDuration = {
-									type = "toggle",
-									order = 20,
-									name = "Show 'Session Duration'",
-									desc = "Show 'Session Duration'",
-									width = "double",
-								},
-								showLootedItemValue = {
-									type = "toggle",
-									order = 30,
-									name = "Show 'Looted Item Value'",
-									desc = "Show 'Looted Item Value'",
-									width = "double",
-								},
-								showLootedItemValuePerHour = {
-									type = "toggle",
-									order = 40,
-									name = "Show 'Looted Item Value' Per Hour",
-									desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)",
-									width = "double",
-								},
-								showCurrencyLooted = {
-									type = "toggle",
-									order = 50,
-									name = "Show 'Currency Looted'",
-									desc = "Show 'Currency Looted'",
-									width = "double",
-								},
-								showItemsLooted = {
-									type = "toggle",
-									order = 60,
-									name = "Show 'Items Looted'",
-									desc = "Show 'Items Looted'",
-									width = "double",
-								},
-								showNoteworthyItems = {
-									type = "toggle",
-									order = 70,
-									name = "Show 'Noteworthy Items'",
-									desc = "Show 'Noteworthy Items'",
-									width = "double",
-								},
-							},
-							plugins = {},
-						},
 					},
 				},
 				priceSourceGrp = {
@@ -384,6 +319,71 @@ local options = {
 							disabled = function() return not LA.db.profile.notification.playSoundEnabled end,
 						},
 					},
+				},
+				displayOptions = {
+					type = "group",
+					order = 90,
+					name = "Display",
+					--inline = true,
+					get = function(info) 
+						return LA.db.profile.display[info[#info]] 
+					end,
+					set = function(info, value) 
+						LA.db.profile.display[info[#info]] = value
+						LA:refreshMainWindow()
+					end,
+					args = {
+						showZoneInfo = {
+							type = "toggle",
+							order = 10,
+							name = "Show Zone Information",
+							desc = "Show Zone Information",
+							width = "double",
+						},
+						showSessionDuration = {
+							type = "toggle",
+							order = 20,
+							name = "Show 'Session Duration'",
+							desc = "Show 'Session Duration'",
+							width = "double",
+						},
+						showLootedItemValue = {
+							type = "toggle",
+							order = 30,
+							name = "Show 'Looted Item Value'",
+							desc = "Show 'Looted Item Value'",
+							width = "double",
+						},
+						showLootedItemValuePerHour = {
+							type = "toggle",
+							order = 40,
+							name = "Show 'Looted Item Value' Per Hour",
+							desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)",
+							width = "double",
+						},
+						showCurrencyLooted = {
+							type = "toggle",
+							order = 50,
+							name = "Show 'Currency Looted'",
+							desc = "Show 'Currency Looted'",
+							width = "double",
+						},
+						showItemsLooted = {
+							type = "toggle",
+							order = 60,
+							name = "Show 'Items Looted'",
+							desc = "Show 'Items Looted'",
+							width = "double",
+						},
+						showNoteworthyItems = {
+							type = "toggle",
+							order = 70,
+							name = "Show 'Noteworthy Items'",
+							desc = "Show 'Noteworthy Items'",
+							width = "double",
+						},
+					},
+					plugins = {},
 				},
 				aboutGroup = {
 					type = "group", 
