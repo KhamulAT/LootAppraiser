@@ -330,57 +330,81 @@ local options = {
 					end,
 					set = function(info, value) 
 						LA.db.profile.display[info[#info]] = value
-						LA:refreshMainWindow()
+						--LA:refreshMainWindow()
 					end,
 					args = {
+						description = {
+							type = "description", 
+							order = 1, 
+							name = "Attention! All changes will take effect only after a restart.", 
+							width = "full", 
+						}, 
+						lootedItemListRowCount = {
+							type = "range",
+							order = 5, 
+							name = "Number of rows",
+							desc = "Number of rows in the looted item list",
+							min = 0,
+							max = 10,
+							step = 1,
+							width = "double",
+						},
 						showZoneInfo = {
 							type = "toggle",
 							order = 10,
 							name = "Show Zone Information",
 							desc = "Show Zone Information",
-							width = "double",
+							width = "full",
 						},
 						showSessionDuration = {
 							type = "toggle",
 							order = 20,
 							name = "Show 'Session Duration'",
 							desc = "Show 'Session Duration'",
-							width = "double",
+							width = "full",
 						},
 						showLootedItemValue = {
 							type = "toggle",
 							order = 30,
 							name = "Show 'Looted Item Value'",
 							desc = "Show 'Looted Item Value'",
-							width = "double",
+							width = "full",
 						},
 						showLootedItemValuePerHour = {
 							type = "toggle",
 							order = 40,
 							name = "Show 'Looted Item Value' Per Hour",
 							desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)",
-							width = "double",
+							width = "full",
 						},
 						showCurrencyLooted = {
 							type = "toggle",
 							order = 50,
 							name = "Show 'Currency Looted'",
 							desc = "Show 'Currency Looted'",
-							width = "double",
+							width = "full",
 						},
 						showItemsLooted = {
 							type = "toggle",
 							order = 60,
 							name = "Show 'Items Looted'",
 							desc = "Show 'Items Looted'",
-							width = "double",
+							width = "full",
 						},
 						showNoteworthyItems = {
 							type = "toggle",
 							order = 70,
 							name = "Show 'Noteworthy Items'",
 							desc = "Show 'Noteworthy Items'",
-							width = "double",
+							width = "full",
+						},
+						reloadUi = {
+							type = "execute",
+							order = 100,
+							name = "Reload UI",
+							func = function()
+								ReloadUI()
+							end
 						},
 					},
 					plugins = {},

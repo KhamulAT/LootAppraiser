@@ -24,6 +24,7 @@ local sessionIsRunning = false 			-- is currently a session running?
 local lootAppraiserDisabled = false		-- is LootAppraiser disabled?
 
 local currentSession = nil
+local currentSessionID = nil
 
 local startSessionPromptAlreadyAnswerd = false -- is the start session prompt already answered?
 
@@ -32,6 +33,8 @@ local totalItemValue = 0        	-- the total looted item value
 local lootedItemCounter = 0			-- counter for looted items
 local noteworthyItemCounter = 0		-- counter for noteworthy items
 local lootedItemValuePerHour = 0	-- looted item value / h
+
+local savedLoot = {}
 
 local dbDefaults
 
@@ -190,6 +193,7 @@ function LA:OnEnable()
 	-- register event for...
 	-- ...loot window open
 	LA:RegisterEvent("LOOT_OPENED", onLootOpened)
+	LA:RegisterEvent("LOOT_SLOT_CLEARED", onLootSlotCleared)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
@@ -339,6 +343,45 @@ end
 --[[-------------------------------------------------------------------------------------
 -- event handler
 ---------------------------------------------------------------------------------------]]
+function onLootSlotCleared(event, slot)
+	-- is LootAppraiser disabled?
+	if lootAppraiserDisabled then return end
+	if not isSessionRunning() then return end
+
+	Debug("-> loot slot cleared: " .. tostring(slot))
+
+	local data = savedLoot[tostring(slot)]
+	Debug("-> " .. tostring(data))
+	if data ~= nil then
+
+		if data["currency"] then
+			Debug("  -> " .. tostring(data["currency"]) .. " copper")
+
+			local lootedCopper = data["currency"]
+
+			savedLoot[tostring(slot)] = nil
+
+			handleCurrencyLooted(lootedCopper)
+
+		else
+			Debug("  -> " .. tostring(data["itemID"]) .. " x" .. tostring(data["quantity"]))
+
+			local itemLink = data["link"]
+			local quantity = data["quantity"]
+			local itemID = data["itemID"]
+
+			savedLoot[tostring(slot)] = nil
+
+			handleItemLooted(itemLink, itemID, quantity)
+
+		end
+		
+		Debug("loot slot cleared with " .. tablelength(savedLoot) .. " items remaining")
+
+	end
+end
+
+
 function onLootOpened(event, ...)
 	-- is LootAppraiser disabled?
 	if lootAppraiserDisabled then return end
@@ -355,9 +398,41 @@ function onLootOpened(event, ...)
 		end
 	else
 		-- Cycle through each looted item --
+		savedLoot = {}
+
 		for i = 1, GetNumLootItems() do
 			local slotType = GetLootSlotType(i)
 
+			if slotType == 1 then
+				-- item looted
+				local itemLink = GetLootSlotLink(i)
+				local itemID = LA:GetItemID(itemLink, true) -- get item id
+
+				local quantity = select(3, GetLootSlotInfo(i))
+
+				local data = {}
+				data["link"] = itemLink
+				data["quantity"] = quantity
+				data["itemID"] = itemID
+
+				-- save data
+				savedLoot[tostring(i)] = data
+
+			elseif slotType == 2 then
+				-- currency looted
+
+				local lootedCoin = select(2, GetLootSlotInfo(i))
+				local lootedCopper = getLootedCopperFromText(lootedCoin)
+
+				local data = {}
+				data["currency"] = lootedCopper
+
+				-- save data
+				savedLoot[tostring(i)] = data
+
+			end
+
+--[[
 			if slotType == 1 then
 				-- item looted
 				--Debug("item looted")
@@ -379,7 +454,10 @@ function onLootOpened(event, ...)
 
 				handleCurrencyLooted(lootedCopper)
 			end
+]]
 		end
+
+		Debug("loot opened finished with " .. tablelength(savedLoot) .. " items")
 	end
 end
 
@@ -496,7 +574,7 @@ end
 -- save the current loot during 'start session?' dialog so we miss no loot if we start
 -- a new session
 ---------------------------------------------------------------------------------------]]
-local savedLoot = {}
+
 function saveCurrentLoot()
 	if not tablelength(savedLoot) == 0 then Debug("savedLoot is not empty...") end
 
@@ -682,7 +760,12 @@ function StartSession(openLootAppraiser)
 		local sessions = LA.db.global.sessions
 		local nextId = #sessions + 1
 
-		tinsert(LA.db.global.sessions, currentSession)
+		--tinsert(LA.db.global.sessions, currentSession)
+
+		local sessions = LA.db.global.sessions
+		--currentSessionID = tablelength(sessions)+1
+		--sessions[currentSessionID] = currentSession
+		table.insert(sessions, currentSession)
 		-- end: prepare session (for statistics)
 
         -- show main window
@@ -765,19 +848,6 @@ function DisableLootAppraiser()
 	savedLoot = {}
 end
 
---[[-------------------------------------------------------------------------------------
--- refresh the main ui
----------------------------------------------------------------------------------------]]
-function LA:refreshMainWindow()
-	if MAIN_UI ~= nil then
-		MAIN_UI:Hide()
-
-		MAIN_UI:Release()
-		MAIN_UI = nil
-
-		ShowMainWindow(true)
-	end
-end
 
 -- main window --
 local total = 0
@@ -792,7 +862,7 @@ function ShowMainWindow(showMainUI)
 	local labelWidth = 120
 	local valueWidth = 240
 
-	local mainUiHeight = 270
+	local mainUiHeight = 275
 	local rowHeight = 16
 
 	MAIN_UI = AceGUI:Create("Frame")
@@ -961,20 +1031,22 @@ end
 function refreshSessionDuration( ... )
 	if not isDisplayEnabled("showSessionDuration") then return end
 
-	if isSessionRunning() then
-		local delta =  time() - currentSession["start"]
+	if VALUE_SESSIONDURATION then
+		if isSessionRunning() then
+			local delta =  time() - currentSession["start"]
 
-		-- don't show seconds
-		local noSeconds = false
-		if delta > 3600 then
-			noSeconds = true
+			-- don't show seconds
+			local noSeconds = false
+			if delta > 3600 then
+				noSeconds = true
+			end
+
+			--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
+			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+		else
+			--tooltip:AddLine("Session is not running")
+			VALUE_SESSIONDURATION:SetText("not running")
 		end
-
-		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
-		VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-	else
-		--tooltip:AddLine("Session is not running")
-		VALUE_SESSIONDURATION:SetText("not running")
 	end
 end
 
@@ -1092,9 +1164,10 @@ end
 -- refresh UI with the new calculated looted item value per hour
 ---------------------------------------------------------------------------------------]]
 function refreshLivPerHour()
+	Debug("refreshLivPerHour")
 	if not isDisplayEnabled("showLootedItemValuePerHour") then return end
 
-	if isDisplayEnabled("showLootedItemValue") then
+	if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
 		local livValue = LA:FormatTextMoney(totalItemValue) or 0
 		livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 
@@ -1104,6 +1177,11 @@ function refreshLivPerHour()
 
 	-- save to session (for statistics)
 	if totalItemValue > 0 then
+		--Debug("  -> session saved...")
+		local currentTime = time()
+
+		--LA.db.profile.sessions[currentSessionID]["liv"] = totalItemValue
+		--LA.db.profile.sessions[currentSessionID]["end"] = currentTime
 		currentSession["liv"] = totalItemValue
 		currentSession["end"] = currentTime
 	end

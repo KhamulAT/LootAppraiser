@@ -1,6 +1,6 @@
 -- LootAppraiser_TSM.lua --
 local LA = LibStub("AceAddon-3.0"):GetAddon("LootAppraiser")
-local L = LibStub("AceLocale-3.0"):GetLocale("LootAppraiser", true)
+--local L = LibStub("AceLocale-3.0"):GetLocale("LootAppraiser", true)
 
 
 local TSM = LibStub("AceAddon-3.0"):GetAddon("TradeSkillMaster")
