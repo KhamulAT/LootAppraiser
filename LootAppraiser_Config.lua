@@ -489,7 +489,7 @@ function Config:OnInitialize()
 	AceConfigDialog:AddToBlizOptions(LootAppraiser)
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
 
-	options.args.statistic.args = getStatisticGroups() -- prepare statistic groups
+	prepareStatisticGroups() -- prepare statistic groups
 
 	--testFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser) -- test
 
@@ -500,6 +500,12 @@ function Config:OnInitialize()
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.inline = true
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.name = ""
 end
+
+
+function prepareStatisticGroups()
+	options.args.statistic.args = getStatisticGroups()
+end
+
 
 local groups = {}
 function test()

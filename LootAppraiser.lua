@@ -21,17 +21,15 @@ local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE
 
 
 local sessionIsRunning = false 			-- is currently a session running?
+local startSessionPromptAlreadyAnswerd = false -- is the start session prompt already answered?
 local lootAppraiserDisabled = false		-- is LootAppraiser disabled?
 
 local currentSession = nil
-
-local startSessionPromptAlreadyAnswerd = false -- is the start session prompt already answered?
+local currentSessionID = nil
 
 local totalLootedCurrency = 0   	-- the total looted currency during a session
-local totalItemValue = 0        	-- the total looted item value
 local lootedItemCounter = 0			-- counter for looted items
 local noteworthyItemCounter = 0		-- counter for noteworthy items
-local lootedItemValuePerHour = 0	-- looted item value / h
 
 local savedLoot = {}
 
@@ -39,43 +37,30 @@ local dbDefaults
 
 local ITEM_FILTER_VENDOR = {
 	--DEFAULT ITEM IDs BELOW TO VENDORSELL PRICING
-	["1205"] = true, ["3770"] = true, ["104314"] = true, ["11444"] = true, ["104314"] = true, 
-	["11444"] = true, ["117437"] = true, ["117439"] = true, ["117442"] = true, ["117453"] = true, 
-	["117568"] = true, ["1179"] = true, ["117"] = true, ["159"] = true, ["1645"] = true, 
-	["1707"] = true, ["1708"] = true, ["17344"] = true, ["17404"] = true, ["17406"] = true, 
-	["17407"] = true, ["19221"] = true, ["19222"] = true, ["19223"] = true, ["19224"] = true, 
-	["19225"] = true, ["19299"] = true, ["19300"] = true, ["19304"] = true, ["19305"] = true, 
-	["19306"] = true, ["2070"] = true, ["20857"] = true, ["21151"] = true, ["21215"] = true, 
-	["2287"] = true, ["2593"] = true, ["2594"] = true, ["2595"] = true, ["2596"] = true, 
-	["2723"] = true, ["27854"] = true, ["27855"] = true, ["27856"] = true, ["27857"] = true, 
-	["27858"] = true, ["27859"] = true, ["27860"] = true, ["28284"] = true, ["28399"] = true, 
-	["29453"] = true, ["29454"] = true, ["33443"] = true, ["33444"] = true, ["33445"] = true, 
-	["33449"] = true, ["33451"] = true, ["33452"] = true, ["33454"] = true, ["35947"] = true, 
-	["35948"] = true, ["35951"] = true, ["3703"] = true, ["37252"] = true, ["3771"] = true, 
-	["3927"] = true, ["40042"] = true, ["414"] = true, ["41731"] = true, ["422"] = true, 
-	["44570"] = true, ["44940"] = true, ["44941"] = true, ["4536"] = true, ["4537"] = true, 
-	["4538"] = true, ["4539"] = true, ["4540"] = true, ["4541"] = true, ["4542"] = true, 
-	["4544"] = true, ["4592"] = true, ["4593"] = true, ["4594"] = true, ["4595"] = true, 
-	["4599"] = true, ["4600"] = true, ["4601"] = true, ["4602"] = true, ["4604"] = true, 
-	["4605"] = true, ["4606"] = true, ["4607"] = true, ["4608"] = true, ["58256"] = true, 
-	["58257"] = true, ["58258"] = true, ["58259"] = true, ["58260"] = true, ["58261"] = true, 
-	["58262"] = true, ["58263"] = true, ["58264"] = true, ["58265"] = true, ["58266"] = true, 
-	["58268"] = true, ["58269"] = true, ["59029"] = true, ["59230"] = true, ["61982"] = true, 
-	["61985"] = true, ["61986"] = true, ["73260"] = true, ["74822"] = true, ["787"] = true, 
-	["81400"] = true, ["81401"] = true, ["81402"] = true, ["81403"] = true, ["81404"] = true, 
-	["81405"] = true, ["81406"] = true, ["81407"] = true, ["81408"] = true, ["81409"] = true, 
-	["81410"] = true, ["81411"] = true, ["81412"] = true, ["81413"] = true, ["81414"] = true, 
-	["81415"] = true, ["8766"] = true, ["8932"] = true, ["8948"] = true, ["8950"] = true, 
-	["8952"] = true, ["8953"] = true, ["9260"] = true, ["20404"] = true	
+	["1205"] = true, ["3770"] = true, ["104314"] = true, ["11444"] = true, ["104314"] = true, ["11444"] = true, ["117437"] = true, ["117439"] = true, 
+	["117442"] = true, ["117453"] = true, ["117568"] = true, ["1179"] = true, ["117"] = true, ["159"] = true, ["1645"] = true, ["1707"] = true, ["1708"] = true, 
+	["17344"] = true, ["17404"] = true, ["17406"] = true, ["17407"] = true, ["19221"] = true, ["19222"] = true, ["19223"] = true, ["19224"] = true, ["19225"] = true, 
+	["19299"] = true, ["19300"] = true, ["19304"] = true, ["19305"] = true, ["19306"] = true, ["2070"] = true, ["20857"] = true, ["21151"] = true, ["21215"] = true, 
+	["2287"] = true, ["2593"] = true, ["2594"] = true, ["2595"] = true, ["2596"] = true, ["2723"] = true, ["27854"] = true, ["27855"] = true, ["27856"] = true, 
+	["27857"] = true, ["27858"] = true, ["27859"] = true, ["27860"] = true, ["28284"] = true, ["28399"] = true, ["29453"] = true, ["29454"] = true, ["33443"] = true, 
+	["33444"] = true, ["33445"] = true, ["33449"] = true, ["33451"] = true, ["33452"] = true, ["33454"] = true, ["35947"] = true, ["35948"] = true, ["35951"] = true, 
+	["3703"] = true, ["37252"] = true, ["3771"] = true, ["3927"] = true, ["40042"] = true, ["414"] = true, ["41731"] = true, ["422"] = true, ["44570"] = true, 
+	["44940"] = true, ["44941"] = true, ["4536"] = true, ["4537"] = true, ["4538"] = true, ["4539"] = true, ["4540"] = true, ["4541"] = true, ["4542"] = true, 
+	["4544"] = true, ["4592"] = true, ["4593"] = true, ["4594"] = true, ["4595"] = true, ["4599"] = true, ["4600"] = true, ["4601"] = true, ["4602"] = true, 
+	["4604"] = true, ["4605"] = true, ["4606"] = true, ["4607"] = true, ["4608"] = true, ["58256"] = true, ["58257"] = true, ["58258"] = true, ["58259"] = true, 
+	["58260"] = true, ["58261"] = true, ["58262"] = true, ["58263"] = true, ["58264"] = true, ["58265"] = true, ["58266"] = true, ["58268"] = true, 
+	["58269"] = true, ["59029"] = true, ["59230"] = true, ["61982"] = true, ["61985"] = true, ["61986"] = true, ["73260"] = true, ["74822"] = true, ["787"] = true, 
+	["81400"] = true, ["81401"] = true, ["81402"] = true, ["81403"] = true, ["81404"] = true, ["81405"] = true, ["81406"] = true, ["81407"] = true, 
+	["81408"] = true, ["81409"] = true, ["81410"] = true, ["81411"] = true, ["81412"] = true, ["81413"] = true, ["81414"] = true, ["81415"] = true, 
+	["8766"] = true, ["8932"] = true, ["8948"] = true, ["8950"] = true, ["8952"] = true, ["8953"] = true, ["9260"] = true, ["20404"] = true	
 }
 
 local ITEM_FILTER_BLACKLIST = {
 	--These items are from AQ20.  All of the Idols and Scarabs are Blacklisted.
-	["20858"] = true, ["20859"] = true, ["20860"] = true, ["20861"] = true, ["20862"] = true, ["20863"] = true, ["20864"] = true,
-	["20865"] = true, ["20874"] = true, ["20866"] = true, ["20868"] = true, ["20869"] = true, ["20870"] = true,
-	["20871"] = true, ["20872"] = true, ["20873"] = true, ["20867"] = true, ["20875"] = true, ["20876"] = true, ["20877"] = true,
-	["20878"] = true, ["20879"] = true, ["20881"] = true, ["20882"] = true, ["19183"] = true, ["18640"] = true, ["8623"]  = true,
-	["114120"] = true, ["114116"] = true, ["9243"] = true
+	["20858"] = true, ["20859"] = true, ["20860"] = true, ["20861"] = true, ["20862"] = true, ["20863"] = true, ["20864"] = true, ["20865"] = true, 
+	["20874"] = true, ["20866"] = true, ["20868"] = true, ["20869"] = true, ["20870"] = true, ["20871"] = true, ["20872"] = true, ["20873"] = true, 
+	["20867"] = true, ["20875"] = true, ["20876"] = true, ["20877"] = true,	["20878"] = true, ["20879"] = true, ["20881"] = true, ["20882"] = true, 
+	["19183"] = true, ["18640"] = true, ["8623"]  = true, ["114120"] = true, ["114116"] = true, ["9243"] = true
 }
 
 LA.QUALITY_FILTER = { -- little hack to sort them in the menu
@@ -516,10 +501,8 @@ function handleCurrencyLooted(lootedCopper)
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
 		if isDisplayEnabled("showCurrencyLooted") then
-			-- format the total looted currency...
+			-- format the total looted currency and add to main ui
 			local formattedValue = LA:FormatTextMoney(totalLootedCurrency) or 0
-
-			-- add to main ui
 			VALUE_TOTALCURRENCY:SetText(formattedValue)
 		end
 	end
@@ -696,33 +679,10 @@ function StartSession(openLootAppraiser)
 
 		sessionIsRunning = true
 
-		-- start: prepare session (for statistics)
-		currentSession = {}
-		currentSession["start"] = time()
-		currentSession["mapID"] =  GetCurrentMapAreaID()
-
-		currentSession["settings"] = {}
-		currentSession.settings["qualityFilter"] = getQualityFilter()
-		currentSession.settings["gat"] = getGoldAlertThreshold()
-
-		currentSession["noteworthyItems"] = {}
-		currentSession["liv"] = 0
-
-		local nameString = GetUnitName("player", true)
-		local realm = GetRealmName()
-
-		currentSession.player = nameString .. "-" .. realm
-
-		local sessions = LA.db.global.sessions
-		local nextId = #sessions + 1
-
-		tinsert(LA.db.global.sessions, currentSession)
-		-- end: prepare session (for statistics)
+		prepareNewSession()
 
         -- show main window
-		--if openLootAppraiser then
-			ShowMainWindow(openLootAppraiser)
-		--end
+		ShowMainWindow(openLootAppraiser)
 
 		-- process saved loot
 		Debug("  savedLoot = " .. tostring(tablelength(savedLoot)))
@@ -748,47 +708,35 @@ function StartSession(openLootAppraiser)
 end
 
 
-function printSessions()
-	if not LA.DEBUG then return end
+function prepareNewSession()
+	Debug("prepareNewSession")
+
+	-- start: prepare session (for statistics)
+	currentSession = {}
+	currentSession["start"] = time()
+	currentSession["mapID"] =  GetCurrentMapAreaID()
+
+	currentSession["settings"] = {}
+	currentSession.settings["qualityFilter"] = getQualityFilter()
+	currentSession.settings["gat"] = getGoldAlertThreshold()
+	currentSession.settings["priceSource"] = getPriceSource()
+
+	currentSession["noteworthyItems"] = {} -- empty table
+	currentSession["liv"] = 0
+
+	local nameString = GetUnitName("player", true)
+	local realm = GetRealmName()
+
+	currentSession["player"] = nameString .. "-" .. realm
 
 	local sessions = LA.db.global.sessions
-	for i,v in ipairs(sessions) do
-		local sessionMapID = v["mapID"]
-		local sessionStart = v["start"];
-		local sessionEnd = v["end"];
-		local liv = v["liv"]
+	currentSessionID = #sessions + 1
 
-		if sessionEnd ~= nil then
-			Debug("  session " .. tostring(i))
-			Debug("    time: " .. date("%x", sessionStart))
-
-			local mapName
-			if sessionMapID ~= nil then
-				mapName = GetMapNameByID(sessionMapID)
-			end
-			Debug("    map: " .. tostring(sessionMapID) .. " (" .. tostring(mapName) .. ")")
-
-			local sessionDuration = sessionEnd - sessionStart
-			Debug("    duration: " .. SecondsToTime(sessionDuration))
-
-			local factor = 3600
-			if sessionDuration < factor then
-				factor = sessionDuration
-			end
-
-			local formattedLiv = LA:FormatTextMoney(liv) or 0
-			Debug("    looted item value: " .. formattedLiv)
-
-			local livGold = floor(liv/10000)
-			local livGoldPerHour = floor(livGold/sessionDuration*factor)
-			Debug("    liv/h: " .. tostring(livGoldPerHour) .. "g/h")
-		else
-			-- missing end -> remove entry
-			Debug("  session " .. tostring(i) .. " is invalid (missing end)")
-			--sessions[i] = nil
-		end
-	end
+	sessions[currentSessionID] = currentSession
+	--tinsert(LA.db.global.sessions, currentSession)
+	-- end: prepare session (for statistics)
 end
+
 
 function DisableLootAppraiser()
 	LA:Print("Disabling LootAppraiser.")
@@ -827,8 +775,9 @@ function ShowMainWindow(showMainUI)
 		function(event, elapsed)
 			total = total + elapsed
     		if total >= 1 then
-		        refreshLivPerHour()
+		        refreshZoneInfo()
 		        refreshSessionDuration()
+		        refreshLivPerHour()
 		        total = 0
 		    end	
 		end
@@ -843,12 +792,7 @@ function ShowMainWindow(showMainUI)
 		bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
 		edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]], 
 		edgeSize = 2,
-		insets = { 
-			left = 1, 
-			right = 1, 
-			top = 1, 
-			bottom = 1 
-		}
+		insets = { left = 1, right = 1, top = 1, bottom = 1 }
 	}
 
 	local GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
@@ -889,9 +833,10 @@ function ShowMainWindow(showMainUI)
 	if isDisplayEnabled("showLootedItemValue") then
 		mainUiHeight = mainUiHeight + rowHeight
 		
-		local livValue = LA:FormatTextMoney(totalItemValue) or 0
+		local totalItemValue = currentSession["liv"] or 0
+		local livValue = LA:FormatTextMoney(totalItemValue)
 		if isDisplayEnabled("showLootedItemValuePerHour") then
-			livValue = livValue .. " (" .. lootedItemValuePerHour .. "|cffffd100g|r/h)"
+			livValue = livValue .. " (0|cffffd100g|r/h)"
 		end
 
 		VALUE_LOOTEDITEMVALUE = addRowToFrame(MAIN_UI, "Looted Item Value:", livValue)
@@ -947,7 +892,6 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:AddChild(BUTTON_DESTROYTRASH)
 
 	-- button new session --
-	--[[
 	local BUTTON_NEWSESSION = AceGUI:Create("Button")
 	BUTTON_NEWSESSION:SetAutoWidth(true)
 	BUTTON_NEWSESSION:SetText("New Session")
@@ -955,13 +899,16 @@ function ShowMainWindow(showMainUI)
 		onBtnNewSessionClick()
 	end)
 	MAIN_UI:AddChild(BUTTON_NEWSESSION)
-	]]
 
 	if showMainUI then
 		MAIN_UI:Show()
 	end
 end
 
+
+--[[-------------------------------------------------------------------------------------
+-- add a row with label and value to the frame
+---------------------------------------------------------------------------------------]]
 function addRowToFrame(frame, name, value, func)
 	local labelWidth = 120
 	local valueWidth = 240
@@ -990,7 +937,11 @@ function addRowToFrame(frame, name, value, func)
 	return VALUE
 end
 
-function refreshSessionDuration( ... )
+
+--[[-------------------------------------------------------------------------------------
+-- refresh the session duration on the main ui
+---------------------------------------------------------------------------------------]]
+function refreshSessionDuration()
 	if not isDisplayEnabled("showSessionDuration") then return end
 
 	if VALUE_SESSIONDURATION then
@@ -1012,28 +963,41 @@ function refreshSessionDuration( ... )
 	end
 end
 
+
 --[[------------------------------------------------------------------------
 -- Event handler for button 'new session'
 --------------------------------------------------------------------------]]
---[[
 function onBtnNewSessionClick()
+	Debug("onBtnNewSessionClick")
+
 	-- save session
-	if currentSession ~= nil then
-		if currentSession["liv"] > 0 then
-			currentSession["end"] = time()
-		else
-			-- do nothing
-			-- TODO delete currentSession
-		end
+	if currentSession["liv"] > 0 then
+		Debug("  -> set session end")
+		currentSession["end"] = time()
+	else
+		-- delete current session
+		local sessions = LA.db.global.sessions
+		sessions[currentSessionID] = nil
+		-- TODO delete currentSession
 	end
 
 	-- reset all values
-	sessionIsRunning = false
+	prepareNewSession()
 
-    StartSession(true)
-    ShowMainWindow(true)
+	totalLootedCurrency = 0   	-- the total looted currency during a session
+	VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
+
+	lootedItemCounter = 0			-- counter for looted items
+	VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+
+	noteworthyItemCounter = 0		-- counter for noteworthy items
+	VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+
+	GUI_LOOTCOLLECTED:ReleaseChildren()
+	lootCollectedLastEntry = nil
+
+	prepareStatisticGroups()
 end
-]]
 
 
 --[[------------------------------------------------------------------------
@@ -1151,21 +1115,21 @@ end
 function refreshLivPerHour()
 	if not isDisplayEnabled("showLootedItemValuePerHour") then return end
 
+	local totalItemValue = currentSession["liv"] or 0
 	if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
-		local livValue = LA:FormatTextMoney(totalItemValue) or 0
+		local livValue = LA:FormatTextMoney(totalItemValue)
 		livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 
 		-- add to main ui
 		VALUE_LOOTEDITEMVALUE:SetText(livValue)
 	end
 
-	-- save to session (for statistics)
+	-- save session (for statistics)
 	if totalItemValue > 0 then
 		--Debug("  -> session saved...")
-		local currentTime = time()
 
 		currentSession["liv"] = totalItemValue
-		currentSession["end"] = currentTime
+		currentSession["end"] = time()
 	end
 end
 
@@ -1184,6 +1148,7 @@ function calcLootedItemValuePerHour()
 		factor = delta
 	end
 
+	local totalItemValue = currentSession["liv"] or 0
 	local livPerHour = (totalItemValue/delta*factor)
 	local livGoldPerHour = floor(livPerHour/10000)
 
@@ -1222,16 +1187,18 @@ function incLootedItemCounter(quantity)
 	end
 end
 
+
 --[[-------------------------------------------------------------------------------------
 -- add item value to looted item value and refresh ui
 ---------------------------------------------------------------------------------------]]
 function addItemValue2LootedItemValue(itemValue)
+	local totalItemValue = currentSession["liv"] or 0
 	totalItemValue = totalItemValue + itemValue
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
 		if isDisplayEnabled("showLootedItemValue") then
-			local livValue = LA:FormatTextMoney(totalItemValue) or 0
+			local livValue = LA:FormatTextMoney(totalItemValue)
 			if isDisplayEnabled("showLootedItemValuePerHour") then
 				livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 			end
@@ -1248,23 +1215,17 @@ function addItemValue2LootedItemValue(itemValue)
 	end
 end
 
+
 --[[-------------------------------------------------------------------------------------
 -- add a given item to the top of the loot colletced list
 ---------------------------------------------------------------------------------------]]
-local lootCollectedLastEntry = nil  -- remember last element from loot collected list to add elemnts before this (on top of the list)
+local lootCollectedLastEntry = nil  -- remember last element from loot collected list to add elements before this (on top of the list)
 function addItem2LootCollectedList(itemID, link, quantity, marketValue, noteworthyItemFound)
 	--Debug("addItem2LootCollectedList(itemID=" .. itemID .. ", link=" .. tostring(link) .. ", quantity=" .. quantity .. ")")
 
 	-- prepare text
 	local formattedItemValue = LA:FormatTextMoney(marketValue) or 0
 	local preparedText = " " .. link .. " x" .. quantity .. ": " .. formattedItemValue
-
-	--[[
-	if noteworthyItemFound then
-		local context = format("LA_NOTEWORTH_%s_%s_%s", itemID, quantity, marketValue)
-		preparedText = preparedText .. Social_GetShareItemLink(itemID, context, true)
-	end
-	]]
 	
 	-- item / link
 	local LABEL = AceGUI:Create("InteractiveLabel")
@@ -1338,11 +1299,12 @@ function LA:refreshStatusText()
 	end
 end
 
+
 --[[-------------------------------------------------------------------------------------
 -- helper methods
 ---------------------------------------------------------------------------------------]]
 
--- add a spacer 
+-- add a blank line to the given frame 
 function addSpacer(frame)
 	local SPACER = AceGUI:Create("Label")
 	SPACER:SetText("   ")
@@ -1350,6 +1312,7 @@ function addSpacer(frame)
 	--SPACER:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	frame:AddChild(SPACER)
 end
+
 
 --[[------------------------------------------------------------------------
 -- checks if a item is blacklisted
@@ -1538,8 +1501,52 @@ function string.startsWith(String,Start)
    return string.sub(String,1,string.len(Start))==Start
 end
 
+
 function tablelength(T)
   local count = 0
   for _ in pairs(T) do count = count + 1 end
   return count
+end
+
+
+function printSessions()
+	if not LA.DEBUG then return end
+
+	local sessions = LA.db.global.sessions
+	for i,v in ipairs(sessions) do
+		local sessionMapID = v["mapID"]
+		local sessionStart = v["start"];
+		local sessionEnd = v["end"];
+		local liv = v["liv"]
+
+		if sessionEnd ~= nil then
+			Debug("  session " .. tostring(i))
+			Debug("    time: " .. date("%x", sessionStart))
+
+			local mapName
+			if sessionMapID ~= nil then
+				mapName = GetMapNameByID(sessionMapID)
+			end
+			Debug("    map: " .. tostring(sessionMapID) .. " (" .. tostring(mapName) .. ")")
+
+			local sessionDuration = sessionEnd - sessionStart
+			Debug("    duration: " .. SecondsToTime(sessionDuration))
+
+			local factor = 3600
+			if sessionDuration < factor then
+				factor = sessionDuration
+			end
+
+			local formattedLiv = LA:FormatTextMoney(liv) or 0
+			Debug("    looted item value: " .. formattedLiv)
+
+			local livGold = floor(liv/10000)
+			local livGoldPerHour = floor(livGold/sessionDuration*factor)
+			Debug("    liv/h: " .. tostring(livGoldPerHour) .. "g/h")
+		else
+			-- missing end -> remove entry
+			Debug("  session " .. tostring(i) .. " is invalid (missing end)")
+			--sessions[i] = nil
+		end
+	end
 end
