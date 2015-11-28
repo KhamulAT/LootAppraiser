@@ -9,8 +9,6 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
-local statisticsPanel
-
 local options = {
 	type = "group",
 	args = {
@@ -30,6 +28,12 @@ local options = {
 					type = "group",
 					order = 25,
 					name = "General",
+					get = function(info) 
+						return LA.db.profile.general[info[#info]] 
+					end,
+					set = function(info, value) 
+						LA.db.profile.general[info[#info]] = value;
+					end,
 					args = {
 						qualityFilter = {
 							type = "select",
@@ -38,11 +42,11 @@ local options = {
 							desc = "Items below the selected quality will not show in the loot collected list",
 							values = LA.QUALITY_FILTER,
 							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
+								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
 									LA:Print("Quality Filter set to: " .. LA.QUALITY_FILTER[value] .. " and above.")
 								end
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.general[info[#info]] = value;
 								LA:refreshStatusText()
 							end,
 						},
@@ -58,11 +62,11 @@ local options = {
 							name = "Gold Alert Threshold (GAT)",
 							desc = "Threshold for gold alert",
 							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
+								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
 									LA:Print("Gold alert threshold set: " .. value .. " gold or higher.")
 								end
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.general[info[#info]] = value;
 								LA:refreshStatusText()
 							end,
 						},
@@ -73,11 +77,25 @@ local options = {
 							desc = "Ignore random enchants on items (like ...of the Bear) and show only the base item",
 							width = "double",
 							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
+								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
 									LA:Print("Ignore random enchants set: " .. tostring(value) .. ".")
 								end
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.general[info[#info]] = value;
+							end,
+						},
+						surpressSessionStartDialog = {
+							type = "toggle",
+							order = 50,
+							name = "Suppress 'Start Session' dialogue during the first looting.",
+							desc = "Attention! If the dialog is suppressed, the session must be started by hand (left-click on the minimap icon)",
+							width = "double",
+							set = function(info, value) 
+								local oldValue = LA.db.profile.general[info[#info]]
+								if oldValue ~= value then
+									LA:Print("Suppress 'Start Session' dialogue: " .. tostring(value) .. ".")
+								end
+								LA.db.profile.general[info[#info]] = value;
 							end,
 						},
 					},
@@ -86,8 +104,14 @@ local options = {
 					type = "group",
 					order = 50,
 					name = "Price Source",
+					get = function(info) 
+						return LA.db.profile.pricesource[info[#info]] 
+					end,
+					set = function(info, value) 
+						LA.db.profile.pricesource[info[#info]] = value;
+					end,
 					args = {
-						priceSource = {
+						source = {
 							type = "select",
 							order = 20,
 							name = "Price Source",
@@ -95,11 +119,11 @@ local options = {
 							values = LA.PRICE_SOURCE,
 							width = "double",
 							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
+								local oldValue = LA.db.profile.pricesource[info[#info]]
 								if oldValue ~= value then
 									LA:Print("Price source changed to: " .. value)
 								end
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.pricesource[info[#info]] = value;
 								LA:refreshStatusText()
 							end,
 						},
@@ -110,11 +134,11 @@ local options = {
 							desc = "TSM Custom Price Source. See TSM documentation for detailed description.",
 							width = "full",
 							disabled = function()
-								return not (LA.db.profile.priceSource == "Custom")
+								return not (LA.db.profile.pricesource.source == "Custom")
 							end,
 							set = function(info, value) 
 								LA:Print("Custom price source changed to: " .. value)
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.pricesource[info[#info]] = value;
 							end,
 							validate = function(info, value)
 								local isValidPriceSource = LA:ParseCustomPrice(value)
@@ -289,11 +313,11 @@ local options = {
 							desc = "Enable Toasts",
 							width = "double",
 							set = function(info, value) 
-								local oldValue = LA.db.profile[info[#info]]
+								local oldValue = LA.db.profile.notification[info[#info]]
 								if oldValue ~= value then
 									LA:Print("Enable Toasts set: " .. tostring(value) .. ".")
 								end
-								LA.db.profile[info[#info]] = value;
+								LA.db.profile.notification[info[#info]] = value;
 							end,
 						},
 						noteworthyItemSoundHeader = {
@@ -324,6 +348,7 @@ local options = {
 					type = "group",
 					order = 90,
 					name = "Display",
+					hidden = true,
 					--inline = true,
 					get = function(info) 
 						return LA.db.profile.display[info[#info]] 
@@ -735,7 +760,7 @@ function createSessionGrp(session, order)
 
 		name = LA:FormatTextMoney(liv) or 0
 	elseif groupBy == "livPerHour" then
-		local liv = session["liv"]
+		local liv = session["liv"] or 0
 		local sessionStart = session["start"]
 		local sessionEnd = session["end"]
 		local sessionDuration = sessionEnd - sessionStart
@@ -817,7 +842,7 @@ function getStatisticGroups()
 		if sessionEnd ~= nil then
 			local sessionMapID = session["mapID"]
 			local sessionStart = session["start"]
-			local liv = session["liv"]
+			local liv = session["liv"] or 0
 
 			local zoneGrp = getOrCreateZoneGrp(groups, session, index)
 
@@ -913,6 +938,11 @@ function tlength(T)
   local count = 0
   for _ in pairs(T) do count = count + 1 end
   return count
+end
+
+
+function Debug(msg)
+	LA:Debug(msg)
 end
 
 --[[

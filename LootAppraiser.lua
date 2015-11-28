@@ -24,7 +24,6 @@ local sessionIsRunning = false 			-- is currently a session running?
 local lootAppraiserDisabled = false		-- is LootAppraiser disabled?
 
 local currentSession = nil
-local currentSessionID = nil
 
 local startSessionPromptAlreadyAnswerd = false -- is the start session prompt already answered?
 
@@ -217,58 +216,6 @@ function initDB()
 
 	local parentWidth = UIParent:GetWidth()
 	local parentHeight = UIParent:GetHeight()
---[[
-	dbDefaults = {
-		profile = {
-			minimapIcon = {
-				-- minimap icon position and visibility
-				hide = false,
-				minimapPos = 220,
-				radius = 80,
-			},
-			["priceSource"] = "DBGlobalMarketAvg",
-			["customPriceSource"] = "",
-			["qualityFilter"] = "1",
-			["goldAlertThreshold"] = "300",
-			["ignoreRandomEnchants"] = true,
-			["sellTrashUseTsmGroup"] = false,
-			["tsmGroup4SellTrash"] = "LootAppraiser`Trash",
-			["blacklistUseTsmGroup"] = false,
-			["tsmGroup4Blacklist"] = "LootAppraiser`Blacklist",
-			["destroyBlacklistedItems"] = false,
-			mainUI = {
-				["height"] = 400,
-				["top"] = (parentHeight-50),
-				["left"] = 50,
-				["width"] = 400,
-			},
-			dockUI = {
-				["height"] = 60,
-				["top"] = (parentHeight-50),
-				["left"] = 50,
-				["width"] = 150,
-			},
-			goldAlertUI = {
-				["height"] = 60,
-				["top"] = (parentHeight-50),
-				["left"] = 475,
-				["width"] = 150,
-			},
-			liteUI = {
-				["height"] = 60,
-				["top"] = (parentHeight-150),
-				["left"] = 475,
-				["width"] = 150,
-			}
-		},
-		global = {
-			items = {
-			},
-			runs = {
-			},
-		},
-	}	
-]]
 
 	dbDefaults = {
 		profile = {
@@ -284,24 +231,32 @@ function initDB()
 				["left"] = 50,
 				["width"] = 400,
 			},
-			priceSource = "DBGlobalMarketAvg",
-			qualityFilter = "1",
-			goldAlertThreshold = "300",
-			ignoreRandomEnchants = true,
+			general = {
+				["qualityFilter"] = "2",
+				["goldAlertThreshold"] = "100",
+				["ignoreRandomEnchants"] = true,
+				["surpressSessionStartDialog"] = false,
+			},
+			pricesource = {
+				["source"] = "DBGlobalMarketAvg",
+			},
 			notification = {
-				sink = {},
-				enableToasts = true,
-				playSoundEnabled = true,
-				soundName = "Auction Window Open",
+				["sink"] = {
+					["sink20Sticky"] = false,
+					["sink20OutputSink"] = "Blizzard",
+				},
+				["enableToasts"] = true,
+				["playSoundEnabled"] = true,
+				["soundName"] = "Auction Window Open",
 			},
 			sellTrash = {
-				tsmGroupEnabled = false,
-				tsmGroup = "LootAppraiser`Trash",
+				["tsmGroupEnabled"] = false,
+				["tsmGroup"] = "LootAppraiser`Trash",
 			},
 			blacklist = {
-				tsmGroupEnabled = false,
-				tsmGroup = "LootAppraiser`Blacklist",	
-				addBlacklistedItems2DestroyTrash = false,			
+				["tsmGroupEnabled"] = false,
+				["tsmGroup"] = "LootAppraiser`Blacklist",	
+				["addBlacklistedItems2DestroyTrash"] = false,			
 			},
 			display = {
 				showZoneInfo = true,
@@ -389,7 +344,7 @@ function onLootOpened(event, ...)
 	-- is a loot appraiser session running?
 	if not isSessionRunning() then
 		-- no session -> should we ask for session start?
-		if not startSessionPromptAlreadyAnswerd then
+		if not startSessionPromptAlreadyAnswerd and not isSurpressSessionStartDialog() then
 			-- save current loot
 			saveCurrentLoot()
 
@@ -735,7 +690,7 @@ function StartSession(openLootAppraiser)
 	if isSessionRunning() then
 		LA:Print("LootAppraiser is already running!")
 	else
-		LA:Print("Session started")
+		LA:Print("Start Session")
 		Debug("  mapID=" .. GetCurrentMapAreaID() .. " (" .. GetMapNameByID(GetCurrentMapAreaID()) .. ")")
 		--printSessions() -- TODO remove
 
@@ -751,6 +706,7 @@ function StartSession(openLootAppraiser)
 		currentSession.settings["gat"] = getGoldAlertThreshold()
 
 		currentSession["noteworthyItems"] = {}
+		currentSession["liv"] = 0
 
 		local nameString = GetUnitName("player", true)
 		local realm = GetRealmName()
@@ -990,6 +946,17 @@ function ShowMainWindow(showMainUI)
 	end)
 	MAIN_UI:AddChild(BUTTON_DESTROYTRASH)
 
+	-- button new session --
+	--[[
+	local BUTTON_NEWSESSION = AceGUI:Create("Button")
+	BUTTON_NEWSESSION:SetAutoWidth(true)
+	BUTTON_NEWSESSION:SetText("New Session")
+	BUTTON_NEWSESSION:SetCallback("OnClick", function()
+		onBtnNewSessionClick()
+	end)
+	MAIN_UI:AddChild(BUTTON_NEWSESSION)
+	]]
+
 	if showMainUI then
 		MAIN_UI:Show()
 	end
@@ -1044,6 +1011,29 @@ function refreshSessionDuration( ... )
 		end
 	end
 end
+
+--[[------------------------------------------------------------------------
+-- Event handler for button 'new session'
+--------------------------------------------------------------------------]]
+--[[
+function onBtnNewSessionClick()
+	-- save session
+	if currentSession ~= nil then
+		if currentSession["liv"] > 0 then
+			currentSession["end"] = time()
+		else
+			-- do nothing
+			-- TODO delete currentSession
+		end
+	end
+
+	-- reset all values
+	sessionIsRunning = false
+
+    StartSession(true)
+    ShowMainWindow(true)
+end
+]]
 
 
 --[[------------------------------------------------------------------------
@@ -1159,7 +1149,6 @@ end
 -- refresh UI with the new calculated looted item value per hour
 ---------------------------------------------------------------------------------------]]
 function refreshLivPerHour()
-	--Debug("refreshLivPerHour")
 	if not isDisplayEnabled("showLootedItemValuePerHour") then return end
 
 	if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
@@ -1175,8 +1164,6 @@ function refreshLivPerHour()
 		--Debug("  -> session saved...")
 		local currentTime = time()
 
-		--LA.db.profile.sessions[currentSessionID]["liv"] = totalItemValue
-		--LA.db.profile.sessions[currentSessionID]["end"] = currentTime
 		currentSession["liv"] = totalItemValue
 		currentSession["end"] = currentTime
 	end
@@ -1344,7 +1331,7 @@ end
 function LA:refreshStatusText()
 	if MAIN_UI ~= nil then
 		-- prepare status text
-		local preparedText = "Quality filter: " .. LA.QUALITY_FILTER[tostring(getQualityFilter())]
+		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(getQualityFilter())]
 		preparedText = preparedText .. " - GAT: |cffffffff" .. getGoldAlertThreshold() .. "|cffffd100g|r"
 		
 		MAIN_UI:SetStatusText(preparedText)
@@ -1411,24 +1398,24 @@ function getBlacklistTsmGroup()
 end
 
 function getGoldAlertThreshold()
-	if LA.db.profile.goldAlertThreshold == nil then
-		LA.db.profile.goldAlertThreshold = dbDefaults.profile.goldAlertThreshold
+	if LA.db.profile.general.goldAlertThreshold == nil then
+		LA.db.profile.general.goldAlertThreshold = dbDefaults.profile.general.goldAlertThreshold
 	end
 
-	return tonumber(LA.db.profile.goldAlertThreshold)
+	return tonumber(LA.db.profile.general.goldAlertThreshold)
 end
 
 function getQualityFilter()
-	if LA.db.profile.qualityFilter == nil then
-		LA.db.profile.qualityFilter = dbDefaults.profile.qualityFilter
+	if LA.db.profile.general.qualityFilter == nil then
+		LA.db.profile.general.qualityFilter = dbDefaults.profile.general.qualityFilter
 	end
 
-	return tonumber(LA.db.profile.qualityFilter)
+	return tonumber(LA.db.profile.general.qualityFilter)
 end
 
 function getIgnoreRandomEnchants()
-	if LA.db.profile.ignoreRandomEnchants == nil then
-		LA.db.profile.ignoreRandomEnchants = dbDefaults.profile.ignoreRandomEnchants
+	if LA.db.profile.general.ignoreRandomEnchants == nil then
+		LA.db.profile.general.ignoreRandomEnchants = dbDefaults.profile.general.ignoreRandomEnchants
 	end
 
 	return LA.db.profile.ignoreRandomEnchants
@@ -1443,11 +1430,16 @@ function LA:getSessions()
 end
 
 function getPriceSource()
-	if LA.db.profile.priceSource == nil then
-		LA.db.profile.priceSource = dbDefaults.profile.priceSource
+	if LA.db.profile.pricesource.source == nil then
+		LA.db.profile.pricesource.source = dbDefaults.profile.pricesource.source
 	end
 
-	return LA.db.profile.priceSource
+	local priceSource = LA.db.profile.pricesource.source
+	if priceSource == "Custom" then
+		priceSource = LA.db.profile.pricesource.customPriceSource
+	end
+
+	return priceSource
 end
 
 function isToastsEnabled()
@@ -1494,6 +1486,14 @@ function isDisplayEnabled(name)
 	return LA.db.profile.display[name]
 end
 
+function isSurpressSessionStartDialog()
+	if LA.db.profile.general.surpressSessionStartDialog == nil then
+		LA.db.profile.general.surpressSessionStartDialog = dbDefaults.profile.general.surpressSessionStartDialog
+	end
+
+	return LA.db.profile.general.surpressSessionStartDialog
+end
+
 --[[-------------------------------------------------------------------------------------
 -- parse currency text from loot window and covert the result to copper
 -- e.g. 2 silve, 2 copper
@@ -1523,11 +1523,16 @@ function getLootedCopperFromText(lootedCurrencyAsText)
 	return copper
 end
 
-function Debug(msg)
+function LA:Debug(msg)
 	if LA.DEBUG then
 		LA:Print(tostring(msg))
 	end
 end
+
+function Debug(msg)
+	LA:Debug(msg)
+end
+
 
 function string.startsWith(String,Start)
    return string.sub(String,1,string.len(Start))==Start
