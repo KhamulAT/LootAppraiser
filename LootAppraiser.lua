@@ -760,12 +760,7 @@ function StartSession(openLootAppraiser)
 		local sessions = LA.db.global.sessions
 		local nextId = #sessions + 1
 
-		--tinsert(LA.db.global.sessions, currentSession)
-
-		local sessions = LA.db.global.sessions
-		--currentSessionID = tablelength(sessions)+1
-		--sessions[currentSessionID] = currentSession
-		table.insert(sessions, currentSession)
+		tinsert(LA.db.global.sessions, currentSession)
 		-- end: prepare session (for statistics)
 
         -- show main window
@@ -1164,7 +1159,7 @@ end
 -- refresh UI with the new calculated looted item value per hour
 ---------------------------------------------------------------------------------------]]
 function refreshLivPerHour()
-	Debug("refreshLivPerHour")
+	--Debug("refreshLivPerHour")
 	if not isDisplayEnabled("showLootedItemValuePerHour") then return end
 
 	if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then

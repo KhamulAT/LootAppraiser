@@ -336,13 +336,13 @@ local options = {
 						description = {
 							type = "description", 
 							order = 1, 
-							name = "Attention! All changes will take effect only after a restart.", 
+							name = "Attention! All changes will only take effect after a reload.\n", 
 							width = "full", 
 						}, 
 						lootedItemListRowCount = {
 							type = "range",
 							order = 5, 
-							name = "Number of rows",
+							name = "Looted Item List: number of rows",
 							desc = "Number of rows in the looted item list",
 							min = 0,
 							max = 10,
@@ -915,9 +915,10 @@ function tlength(T)
   return count
 end
 
-
+--[[
 function Debug(msg)
 	--if LA.DEBUG then
 		LA:Print(tostring(msg))
 	--end
 end
+]]
