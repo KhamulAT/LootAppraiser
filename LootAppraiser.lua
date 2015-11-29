@@ -338,6 +338,7 @@ function onLootOpened(event, ...)
 		end
 	else
 		-- Cycle through each looted item --
+		Debug("loot open started")
 		savedLoot = {}
 
 		for i = 1, GetNumLootItems() do
@@ -782,6 +783,16 @@ function ShowMainWindow(showMainUI)
 		    end	
 		end
 	)
+	--[[
+	MAIN_UI.frame:SetScript("OnEvent", 
+		function(self, event, ...)
+			if string.startsWith(event, "LOOT_") then
+				Debug("  -> e: " .. event)
+			end
+		end
+	)
+	MAIN_UI.frame:RegisterAllEvents()
+	]]
 
 	LA:refreshStatusText()
 
@@ -894,7 +905,7 @@ function ShowMainWindow(showMainUI)
 	-- button new session --
 	local BUTTON_NEWSESSION = AceGUI:Create("Button")
 	BUTTON_NEWSESSION:SetAutoWidth(true)
-	BUTTON_NEWSESSION:SetText("New Session")
+	BUTTON_NEWSESSION:SetText(" New Session ")
 	BUTTON_NEWSESSION:SetCallback("OnClick", function()
 		onBtnNewSessionClick()
 	end)
@@ -1455,6 +1466,10 @@ function isSurpressSessionStartDialog()
 	end
 
 	return LA.db.profile.general.surpressSessionStartDialog
+end
+
+function LA:getCurrentSession()
+	return currentSession
 end
 
 --[[-------------------------------------------------------------------------------------

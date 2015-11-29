@@ -906,7 +906,7 @@ function getStatisticGroups()
 
 				local i = 0
 				for itemID, quantity in pairs(noteworthyItems) do
-					Debug("    " .. tostring(itemID) .. " x" .. tostring(quantity))
+					--Debug("    " .. tostring(itemID) .. " x" .. tostring(quantity))
 
 					if itemID ~= nil then
 						local itemLink = select(2, GetItemInfo(itemID))

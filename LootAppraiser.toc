@@ -38,3 +38,4 @@ LootAppraiser.lua
 LootAppraiser_Config.lua
 LootAppraiser_SalvageCrate.lua
 LootAppraiser_TSM.lua
+LootAppraiser_Data.lua
