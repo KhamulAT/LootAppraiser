@@ -183,7 +183,7 @@ function LA:OnEnable()
 	local nameString = GetUnitName("player", true)
 	local realm = GetRealmName()
 
-	if nameString == "Netatik" and realm == "Antonidas" then
+	if (nameString == "Netatik" or nameString == "Cibane") and realm == "Antonidas" then
 		Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
@@ -258,6 +258,9 @@ function initDB()
 		},
 		global = {			
 			sessions = {
+
+			},
+			drops = {
 
 			},
 		},
@@ -762,15 +765,28 @@ function ShowMainWindow(showMainUI)
 	local labelWidth = 120
 	local valueWidth = 240
 
-	local mainUiHeight = 275
+	local mainUiHeight = 285
 	local rowHeight = 16
+
+	-- TODO
+	--[[
+	TEST = AceGUI:Create("Frame")
+	TEST:SetTitle("Der Titel...")
+	TEST:SetWidth(150)
+	TEST:SetHeight(60)
+	TEST:EnableResize(false)
+	]]
+
+	--TEST.titlebg:Hide()
+	--TEST.titletext:Hide()
+	--TEST.closebutton:Hide()
 
 	MAIN_UI = AceGUI:Create("Frame")
 	MAIN_UI:Hide()
 	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
-	MAIN_UI:SetWidth(400) 
+	MAIN_UI:SetWidth(400)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
