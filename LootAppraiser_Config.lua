@@ -348,14 +348,14 @@ local options = {
 					type = "group",
 					order = 90,
 					name = "Display",
-					hidden = true,
+					hidden = false,
 					--inline = true,
 					get = function(info) 
 						return LA.db.profile.display[info[#info]] 
 					end,
 					set = function(info, value) 
 						LA.db.profile.display[info[#info]] = value
-						--LA:refreshMainWindow()
+						prepareDataContainer()
 					end,
 					args = {
 						description = {

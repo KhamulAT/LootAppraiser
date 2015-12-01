@@ -17,7 +17,7 @@ LA.METADATA = {
 -- frames
 local START_SESSION_PROMPT, MAIN_UI 
 -- single elements
-local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE
+local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE, dataContainer
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -765,21 +765,8 @@ function ShowMainWindow(showMainUI)
 	local labelWidth = 120
 	local valueWidth = 240
 
-	local mainUiHeight = 285
-	local rowHeight = 16
-
-	-- TODO
-	--[[
-	TEST = AceGUI:Create("Frame")
-	TEST:SetTitle("Der Titel...")
-	TEST:SetWidth(150)
-	TEST:SetHeight(60)
-	TEST:EnableResize(false)
-	]]
-
-	--TEST.titlebg:Hide()
-	--TEST.titletext:Hide()
-	--TEST.closebutton:Hide()
+	--local mainUiHeight = 285
+	--local rowHeight = 16
 
 	MAIN_UI = AceGUI:Create("Frame")
 	MAIN_UI:Hide()
@@ -787,6 +774,7 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
 	MAIN_UI:SetWidth(400)
+	--MAIN_UI:SetAutoAdjustHeight(true)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
@@ -799,16 +787,6 @@ function ShowMainWindow(showMainUI)
 		    end	
 		end
 	)
-	--[[
-	MAIN_UI.frame:SetScript("OnEvent", 
-		function(self, event, ...)
-			if string.startsWith(event, "LOOT_") then
-				Debug("  -> e: " .. event)
-			end
-		end
-	)
-	MAIN_UI.frame:RegisterAllEvents()
-	]]
 
 	LA:refreshStatusText()
 
@@ -837,26 +815,38 @@ function ShowMainWindow(showMainUI)
 
 	addSpacer(MAIN_UI)
 
+	dataContainer = AceGUI:Create("SimpleGroup")
+	dataContainer:SetLayout("flow")
+	dataContainer:SetFullWidth(true)
+	MAIN_UI:AddChild(dataContainer)
+
+	prepareDataContainer()
+
 	-- current zone (session zone)
-	if isDisplayEnabled("showZoneInfo") then
+	--if isDisplayEnabled("showZoneInfo") then
+	--[[
 		mainUiHeight = mainUiHeight + rowHeight
 
-		VALUE_ZONE = addRowToFrame(MAIN_UI, "Zone:", " ")
+		VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
 
 		refreshZoneInfo()
-	end
+	]]
+	--end
 
 	-- session duration
-	if isDisplayEnabled("showSessionDuration") then
+	--if isDisplayEnabled("showSessionDuration") then
+	--[[
 		mainUiHeight = mainUiHeight + rowHeight
 
-		VALUE_SESSIONDURATION = addRowToFrame(MAIN_UI, "Session Duration:", "0 sec.")
+		VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
 
 		refreshSessionDuration()
-	end
+	]]
+	--end
 
 	-- looted item value --
 	-- format the total looted item value...
+	--[[
 	if isDisplayEnabled("showLootedItemValue") then
 		mainUiHeight = mainUiHeight + rowHeight
 		
@@ -866,35 +856,42 @@ function ShowMainWindow(showMainUI)
 			livValue = livValue .. " (0|cffffd100g|r/h)"
 		end
 
-		VALUE_LOOTEDITEMVALUE = addRowToFrame(MAIN_UI, "Looted Item Value:", livValue)
+		VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
 	end
+	]]
 
 	-- currency looted --
 	-- format the total looted currency...
-	if isDisplayEnabled("showCurrencyLooted") then
+	--if isDisplayEnabled("showCurrencyLooted") then
+	--[[
 		mainUiHeight = mainUiHeight + rowHeight
 		
 		local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
 
-		VALUE_TOTALCURRENCY = addRowToFrame(MAIN_UI, "Currency Looted:", formattedTotalLootedCurrency)
-	end
+		VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
+	]]
+	--end
 
 	-- items looted (counter) --
-	if isDisplayEnabled("showItemsLooted") then
+	--if isDisplayEnabled("showItemsLooted") then
+	--[[
 		mainUiHeight = mainUiHeight + rowHeight
 
-		VALUE_LOOTEDITEMCOUNTER = addRowToFrame(MAIN_UI, "Items Looted:", lootedItemCounter)
-	end
+		VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
+	]]
+	--end
 
 	-- noteworthy items (counter) --
-	if isDisplayEnabled("showNoteworthyItems") then
+	--if isDisplayEnabled("showNoteworthyItems") then
+	--[[
 		mainUiHeight = mainUiHeight + rowHeight
 
-		VALUE_NOTEWORTHYITEMCOUNTER = addRowToFrame(MAIN_UI, "Noteworthy Items:", noteworthyItemCounter)
-	end
+		VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
+	]]
+	--end
 
 	-- main ui height
-	MAIN_UI:SetHeight(mainUiHeight)
+	--MAIN_UI:SetHeight(381)
 
 	addSpacer(MAIN_UI)
 
@@ -933,10 +930,77 @@ function ShowMainWindow(showMainUI)
 end
 
 
+function prepareDataContainer()
+	Debug("prepareDataContainer")
+
+	-- release data container widgets
+	if dataContainer ~= nil then
+		dataContainer:ReleaseChildren()
+	end
+
+	-- prepare data container with current rows
+	-- ...zone info
+	VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
+	refreshZoneInfo()
+
+	-- ...session duration
+	VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
+	refreshSessionDuration()
+
+	-- ...looted item value (with liv/h)
+	--[[
+	local totalItemValue = currentSession["liv"] or 0
+	local livValue = LA:FormatTextMoney(totalItemValue)
+	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
+	]]
+	--[[
+	if isDisplayEnabled("showLootedItemValue") then
+		mainUiHeight = mainUiHeight + rowHeight
+		
+		local totalItemValue = currentSession["liv"] or 0
+		local livValue = LA:FormatTextMoney(totalItemValue)
+		if isDisplayEnabled("showLootedItemValuePerHour") then
+			livValue = livValue .. " (0|cffffd100g|r/h)"
+		end
+
+		VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
+	end	
+	]]
+	local totalItemValue = currentSession["liv"] or 0
+	local livValue = LA:FormatTextMoney(totalItemValue)
+	if isDisplayEnabled("showLootedItemValuePerHour") then
+		livValue = livValue .. " (0|cffffd100g|r/h)"
+	end
+
+	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
+
+	-- ...looted currency
+	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
+	VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
+
+	-- ...looted item counter
+	VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
+
+	-- ...noteworthy item counter
+	VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
+
+	-- and re-layout
+	MAIN_UI:DoLayout()
+	MAIN_UI:SetHeight(285 + dataContainer.frame:GetHeight())
+end
+
+
 --[[-------------------------------------------------------------------------------------
 -- add a row with label and value to the frame
 ---------------------------------------------------------------------------------------]]
-function addRowToFrame(frame, name, value, func)
+function defineRowForFrame(frame, id, name, value)
+	Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
+
+	if not isDisplayEnabled(id) then 
+		Debug("  -> not visible")
+		return 
+	end
+
 	local labelWidth = 120
 	local valueWidth = 240
 
