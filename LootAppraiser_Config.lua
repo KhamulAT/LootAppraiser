@@ -363,13 +363,14 @@ local options = {
 							order = 1, 
 							name = "Attention! All changes will only take effect after a reload.\n", 
 							width = "full", 
+							hidden = trur,
 						}, 
 						lootedItemListRowCount = {
 							type = "range",
 							order = 5, 
 							name = "Looted Item List: number of rows",
 							desc = "Number of rows in the looted item list",
-							min = 0,
+							min = 3,
 							max = 10,
 							step = 1,
 							width = "double",
@@ -427,6 +428,7 @@ local options = {
 							type = "execute",
 							order = 100,
 							name = "Reload UI",
+							hidden = trur,
 							func = function()
 								ReloadUI()
 							end

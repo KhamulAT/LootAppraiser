@@ -18,6 +18,7 @@ LA.METADATA = {
 local START_SESSION_PROMPT, MAIN_UI 
 -- single elements
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE, dataContainer
+local GUI_LOOTCOLLECTED, GUI_SCROLLCONTAINER
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -762,12 +763,6 @@ function ShowMainWindow(showMainUI)
 		return
 	end 
 
-	local labelWidth = 120
-	local valueWidth = 240
-
-	--local mainUiHeight = 285
-	--local rowHeight = 16
-
 	MAIN_UI = AceGUI:Create("Frame")
 	MAIN_UI:Hide()
 	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
@@ -790,8 +785,6 @@ function ShowMainWindow(showMainUI)
 
 	LA:refreshStatusText()
 
-	-- TODO add other elemenst to the window
-
 	-- loot collected list --
 	local backdrop = {
 		bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
@@ -800,9 +793,9 @@ function ShowMainWindow(showMainUI)
 		insets = { left = 1, right = 1, top = 1, bottom = 1 }
 	}
 
-	local GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
+	GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
 	GUI_SCROLLCONTAINER:SetFullWidth(true)
-	GUI_SCROLLCONTAINER:SetHeight(140)
+	GUI_SCROLLCONTAINER:SetHeight(150)
 	GUI_SCROLLCONTAINER:SetLayout("Fill")
 	GUI_SCROLLCONTAINER.frame:SetBackdrop(backdrop)
 	GUI_SCROLLCONTAINER.frame:SetBackdropColor(0, 0, 0)
@@ -820,79 +813,8 @@ function ShowMainWindow(showMainUI)
 	dataContainer:SetFullWidth(true)
 	MAIN_UI:AddChild(dataContainer)
 
+	-- data rows
 	prepareDataContainer()
-
-	-- current zone (session zone)
-	--if isDisplayEnabled("showZoneInfo") then
-	--[[
-		mainUiHeight = mainUiHeight + rowHeight
-
-		VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
-
-		refreshZoneInfo()
-	]]
-	--end
-
-	-- session duration
-	--if isDisplayEnabled("showSessionDuration") then
-	--[[
-		mainUiHeight = mainUiHeight + rowHeight
-
-		VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
-
-		refreshSessionDuration()
-	]]
-	--end
-
-	-- looted item value --
-	-- format the total looted item value...
-	--[[
-	if isDisplayEnabled("showLootedItemValue") then
-		mainUiHeight = mainUiHeight + rowHeight
-		
-		local totalItemValue = currentSession["liv"] or 0
-		local livValue = LA:FormatTextMoney(totalItemValue)
-		if isDisplayEnabled("showLootedItemValuePerHour") then
-			livValue = livValue .. " (0|cffffd100g|r/h)"
-		end
-
-		VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
-	end
-	]]
-
-	-- currency looted --
-	-- format the total looted currency...
-	--if isDisplayEnabled("showCurrencyLooted") then
-	--[[
-		mainUiHeight = mainUiHeight + rowHeight
-		
-		local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
-
-		VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
-	]]
-	--end
-
-	-- items looted (counter) --
-	--if isDisplayEnabled("showItemsLooted") then
-	--[[
-		mainUiHeight = mainUiHeight + rowHeight
-
-		VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
-	]]
-	--end
-
-	-- noteworthy items (counter) --
-	--if isDisplayEnabled("showNoteworthyItems") then
-	--[[
-		mainUiHeight = mainUiHeight + rowHeight
-
-		VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
-	]]
-	--end
-
-	-- main ui height
-	--MAIN_UI:SetHeight(381)
-
 	addSpacer(MAIN_UI)
 
 	-- button sell trash --
@@ -933,9 +855,19 @@ end
 function prepareDataContainer()
 	Debug("prepareDataContainer")
 
+	if currentSession == nil then return end
+
 	-- release data container widgets
 	if dataContainer ~= nil then
 		dataContainer:ReleaseChildren()
+	end
+
+	-- resize 
+	local listHeight
+	if GUI_SCROLLCONTAINER ~= nil then
+		local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+		listHeight = rowCount * 15
+		GUI_SCROLLCONTAINER:SetHeight(listHeight)
 	end
 
 	-- prepare data container with current rows
@@ -948,24 +880,6 @@ function prepareDataContainer()
 	refreshSessionDuration()
 
 	-- ...looted item value (with liv/h)
-	--[[
-	local totalItemValue = currentSession["liv"] or 0
-	local livValue = LA:FormatTextMoney(totalItemValue)
-	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
-	]]
-	--[[
-	if isDisplayEnabled("showLootedItemValue") then
-		mainUiHeight = mainUiHeight + rowHeight
-		
-		local totalItemValue = currentSession["liv"] or 0
-		local livValue = LA:FormatTextMoney(totalItemValue)
-		if isDisplayEnabled("showLootedItemValuePerHour") then
-			livValue = livValue .. " (0|cffffd100g|r/h)"
-		end
-
-		VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
-	end	
-	]]
 	local totalItemValue = currentSession["liv"] or 0
 	local livValue = LA:FormatTextMoney(totalItemValue)
 	if isDisplayEnabled("showLootedItemValuePerHour") then
@@ -986,7 +900,7 @@ function prepareDataContainer()
 
 	-- and re-layout
 	MAIN_UI:DoLayout()
-	MAIN_UI:SetHeight(285 + dataContainer.frame:GetHeight())
+	MAIN_UI:SetHeight(135 + listHeight + dataContainer.frame:GetHeight())
 end
 
 
@@ -996,7 +910,7 @@ end
 function defineRowForFrame(frame, id, name, value)
 	Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
 
-	if not isDisplayEnabled(id) then 
+	if not isDisplayEnabled(id) or frame == nil then 
 		Debug("  -> not visible")
 		return 
 	end
@@ -1033,24 +947,22 @@ end
 -- refresh the session duration on the main ui
 ---------------------------------------------------------------------------------------]]
 function refreshSessionDuration()
-	if not isDisplayEnabled("showSessionDuration") then return end
+	if not isDisplayEnabled("showSessionDuration") or VALUE_SESSIONDURATION == nil then return end
 
-	if VALUE_SESSIONDURATION then
-		if isSessionRunning() then
-			local delta =  time() - currentSession["start"]
+	if isSessionRunning() then
+		local delta =  time() - currentSession["start"]
 
-			-- don't show seconds
-			local noSeconds = false
-			if delta > 3600 then
-				noSeconds = true
-			end
-
-			--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
-			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-		else
-			--tooltip:AddLine("Session is not running")
-			VALUE_SESSIONDURATION:SetText("not running")
+		-- don't show seconds
+		local noSeconds = false
+		if delta > 3600 then
+			noSeconds = true
 		end
+
+		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
+		VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+	else
+		--tooltip:AddLine("Session is not running")
+		VALUE_SESSIONDURATION:SetText("not running")
 	end
 end
 
@@ -1352,7 +1264,7 @@ end
 -- refresh the zone informations
 ---------------------------------------------------------------------------------------]]
 function refreshZoneInfo()
-	if not isDisplayEnabled("showZoneInfo") then return end
+	if not isDisplayEnabled("showZoneInfo") or VALUE_ZONE == nil then return end
 
 	local zoneInfo = ""
 
