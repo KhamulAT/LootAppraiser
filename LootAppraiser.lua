@@ -130,6 +130,7 @@ local _laLDB = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
 })
 local _icon = LibStub("LibDBIcon-1.0")
 
+
 function miniMapIconOnTooltipShow(tooltip)
 	tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
 	tooltip:AddLine("|cFFFFFFCCLeft-Click|r to open the main window")
@@ -152,6 +153,48 @@ function miniMapIconOnTooltipShow(tooltip)
 	end
 end
 
+
+--[[-------------------------------------------------------------------------------------
+-- hook for add lines to item tooltip
+---------------------------------------------------------------------------------------]]
+local lineAdded = false
+local function OnTooltipSetItem(tooltip, ...)
+	if not lineAdded then
+		local _, link = tooltip:GetItem()
+
+		local itemID = LA:GetItemID(link)
+		
+		--Debug("  itemId=" .. itemID)
+
+		local data = LA.db.global.drops[itemID]
+		if data then
+			--Debug("  data found for itemID=" .. itemID)
+			tooltip:AddLine("|cFFFFFF00" .. LA.METADATA.NAME .. " - Drop Info|r") -- headline
+			for mapID, count in pairs(data) do
+				local mapName = GetMapNameByID(mapID)
+				if mapName then
+					-- add drop count
+					tooltip:AddDoubleLine("|cFFFFFFFF  " .. mapName .. "|r", "|cFFFFFFFF" .. tostring(count) .. " drop(s)|r")
+
+					--tooltip:AddLine("|cFFFFFFFF  " .. mapName .. "|r")
+				end
+			end
+		else
+			--Debug("  no data found for itemID=" .. itemID)
+		end
+
+		lineAdded = true
+	end
+end
+
+--[[-------------------------------------------------------------------------------------
+-- hook for add lines to item tooltip (save function to add lines only once)
+---------------------------------------------------------------------------------------]]
+local function OnTooltipCleared(tooltip, ...)
+   lineAdded = false
+end
+
+
 --[[-------------------------------------------------------------------------------------
 -- AceAddon-3.0 standard methods
 ---------------------------------------------------------------------------------------]]
@@ -165,9 +208,11 @@ function LA:OnInitialize()
 	-- minimap icon --
 	_icon:Register(LA.METADATA.NAME, _laLDB, LA.db.profile.minimapIcon)
 
-	-- options
-	--LA:SetupOptions()
+	-- hook into tooltip to add lines
+	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
+	GameTooltip:HookScript("OnTooltipSetItem", OnTooltipSetItem)
 end
+
 
 function LA:OnEnable()
 	LA:Print("LootAppraiser ENABLED.")
@@ -190,9 +235,11 @@ function LA:OnEnable()
 	end
 end
 
+
 function LA:OnDisable()
 	-- nothing to do
 end
+
 
 --[[-------------------------------------------------------------------------------------
 -- init lootappriaser db
@@ -259,10 +306,8 @@ function initDB()
 		},
 		global = {			
 			sessions = {
-
 			},
 			drops = {
-
 			},
 		},
 	}
@@ -406,6 +451,7 @@ function onLootOpened(event, ...)
 	end
 end
 
+
 --[[-------------------------------------------------------------------------------------
 -- the main logic for item processing
 ---------------------------------------------------------------------------------------]]
@@ -461,6 +507,7 @@ function handleItemLooted(itemLink, itemID, quantity)
 		local goldValue = floor(singleItemValue/10000)	
 		if goldValue >= getGoldAlertThreshold() then
 
+			-- inc noteworthy items counter
 			incNoteworthyItemCounter(quantity)
 
 			-- print to configured output 'channel'
@@ -480,6 +527,22 @@ function handleItemLooted(itemLink, itemID, quantity)
 			else
 				currentSession.noteworthyItems[tostring(itemID)] = itemCountCurrentSession + quantity
 			end
+
+			-- add item to drops
+			local drops = LA.db.global.drops
+			local itemDrops = drops[itemID]
+			if itemDrops == nil then
+				itemDrops = {}
+				drops[itemID] = itemDrops
+			end
+
+			local mapCounter = itemDrops[GetCurrentMapAreaID()]
+			if mapCounter == nil then
+				mapCounter = quantity
+			else
+				mapCounter = mapCounter + quantity
+			end
+			itemDrops[GetCurrentMapAreaID()] = mapCounter
 
 			-- play sound (if enabled)
 			if isPlaySoundEnabled() then
@@ -845,6 +908,31 @@ function ShowMainWindow(showMainUI)
 		onBtnNewSessionClick()
 	end)
 	MAIN_UI:AddChild(BUTTON_NEWSESSION)
+
+	local labelSession = AceGUI:Create("Label")
+	labelSession:SetText("Session: ")
+	labelSession.label:SetJustifyH("RIGHT")
+	labelSession:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	labelSession:SetWidth(85)
+	--MAIN_UI:AddChild(labelSession)
+
+	local iconOne = AceGUI:Create("Icon")
+	iconOne:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
+	iconOne:SetImageSize(24, 24)
+	iconOne:SetWidth(26)
+	--MAIN_UI:AddChild(iconOne)
+
+	local iconTwo = AceGUI:Create("Icon")
+	iconTwo:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
+	iconTwo:SetImageSize(24, 24)
+	iconTwo:SetWidth(26)
+	--MAIN_UI:AddChild(iconTwo)
+
+	local iconThree = AceGUI:Create("Icon")
+	iconThree:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
+	iconThree:SetImageSize(24, 24)
+	iconThree:SetWidth(26)
+	--MAIN_UI:AddChild(iconThree)
 
 	if showMainUI then
 		MAIN_UI:Show()
