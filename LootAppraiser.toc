@@ -33,6 +33,8 @@ Libs\AceSerializer-3.0\AceSerializer-3.0.xml
 #Libs\AccurateTime\AccurateTime.lua
 #Libs\LibChatAnims\LibChatAnims.xml
 
+widget\LootAppraiserGUIContainer-Frame.lua
+
 #Test.lua
 LootAppraiser.lua
 LootAppraiser_Config.lua

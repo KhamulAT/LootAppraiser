@@ -31,6 +31,7 @@ local currentSessionID = nil
 local totalLootedCurrency = 0   	-- the total looted currency during a session
 local lootedItemCounter = 0			-- counter for looted items
 local noteworthyItemCounter = 0		-- counter for noteworthy items
+local totalItemLootedCounter = 0	-- counter for looted items (before filtering)
 
 local savedLoot = {}
 
@@ -103,6 +104,7 @@ LibToast:Register(LootAppraiser,
 	end
 )
 
+
 --[[-------------------------------------------------------------------------------------
 -- prepare minimap icon
 ---------------------------------------------------------------------------------------]]
@@ -129,7 +131,6 @@ local _laLDB = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
 	end
 })
 local _icon = LibStub("LibDBIcon-1.0")
-
 
 function miniMapIconOnTooltipShow(tooltip)
 	tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
@@ -183,9 +184,28 @@ local function OnTooltipSetItem(tooltip, ...)
 			--Debug("  no data found for itemID=" .. itemID)
 		end
 
+		-- calc drop chance
+		local sessions = LA.db.global.sessions
+		local itemCount = 0
+		local fullItemCount = 0
+		for index, session in ipairs(sessions) do
+			local count = session.noteworthyItems[tostring(itemID)]
+			if count ~= nil then
+				itemCount = itemCount + count
+				fullItemCount = fullItemCount + session.totalItemsLooted
+			end
+		end
+
+		if itemCount > 0 then
+			local dropChance = round((100 / fullItemCount * itemCount), 2)
+
+			tooltip:AddDoubleLine("|cFFFFFF00Dropchance:|r", "|cFFFFFFFF" .. tostring(dropChance) .. "%|r")
+		end
+
 		lineAdded = true
 	end
 end
+
 
 --[[-------------------------------------------------------------------------------------
 -- hook for add lines to item tooltip (save function to add lines only once)
@@ -459,6 +479,10 @@ function handleItemLooted(itemLink, itemID, quantity)
 	Debug("handleItemLooted itemID=" .. itemID)
 
     local quality = select(3, GetItemInfo(itemID))
+
+    if quantity ~= nil then
+    	totalItemLootedCounter = totalItemLootedCounter + quantity
+    end
 
     -- overwrite link if we only want base items					
 	if getIgnoreRandomEnchants() then
@@ -845,6 +869,11 @@ function ShowMainWindow(showMainUI)
 		    end	
 		end
 	)
+	MAIN_UI:SetCallback("OnClose",
+		function()
+			Debug("Session ended")
+		end
+	)
 
 	LA:refreshStatusText()
 
@@ -880,6 +909,14 @@ function ShowMainWindow(showMainUI)
 	prepareDataContainer()
 	addSpacer(MAIN_UI)
 
+	-- label 'trash:'
+	local labelTrash = AceGUI:Create("Label")
+	labelTrash:SetText("Trash: ")
+	--labelTrash.label:SetJustifyH("RIGHT")
+	labelTrash:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	labelTrash:SetWidth(40)
+	--MAIN_UI:AddChild(labelTrash)
+
 	-- button sell trash --
 	local BUTTON_SELLTRASH = AceGUI:Create("Button")
 	BUTTON_SELLTRASH:SetAutoWidth(true)
@@ -903,7 +940,7 @@ function ShowMainWindow(showMainUI)
 	-- button new session --
 	local BUTTON_NEWSESSION = AceGUI:Create("Button")
 	BUTTON_NEWSESSION:SetAutoWidth(true)
-	BUTTON_NEWSESSION:SetText(" New Session ")
+	BUTTON_NEWSESSION:SetText("New Session")
 	BUTTON_NEWSESSION:SetCallback("OnClick", function()
 		onBtnNewSessionClick()
 	end)
@@ -1065,6 +1102,7 @@ function onBtnNewSessionClick()
 	if currentSession["liv"] > 0 then
 		Debug("  -> set session end")
 		currentSession["end"] = time()
+		currentSession["totalItemsLooted"] = totalItemLootedCounter
 	else
 		-- delete current session
 		local sessions = LA.db.global.sessions
@@ -1076,15 +1114,24 @@ function onBtnNewSessionClick()
 	prepareNewSession()
 
 	totalLootedCurrency = 0   	-- the total looted currency during a session
-	VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
+	if VALUE_TOTALCURRENCY ~= nil then
+		VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
+	end
 
 	lootedItemCounter = 0			-- counter for looted items
-	VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+	totalItemLootedCounter = 0
+	if VALUE_LOOTEDITEMCOUNTER ~= nil then
+		VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+	end
 
 	noteworthyItemCounter = 0		-- counter for noteworthy items
-	VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+	if VALUE_NOTEWORTHYITEMCOUNTER ~= nil then
+		VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+	end
 
-	GUI_LOOTCOLLECTED:ReleaseChildren()
+	if GUI_LOOTCOLLECTED ~= nil then
+		GUI_LOOTCOLLECTED:ReleaseChildren()
+	end
 	lootCollectedLastEntry = nil
 
 	prepareStatisticGroups()
@@ -1221,6 +1268,7 @@ function refreshLivPerHour()
 
 		currentSession["liv"] = totalItemValue
 		currentSession["end"] = time()
+		currentSession["totalItemsLooted"] = totalItemLootedCounter
 	end
 end
 
@@ -1303,6 +1351,7 @@ function addItemValue2LootedItemValue(itemValue)
 	if totalItemValue > 0 then
 		currentSession["liv"] = totalItemValue
 		currentSession["end"] = time() -- fallback if we found no way to identify session end
+		currentSession["totalItemsLooted"] = totalItemLootedCounter
 	end
 end
 
@@ -1371,6 +1420,11 @@ function refreshZoneInfo()
 
 			--zoneInfo = zoneInfo .. " (" .. zoneName .. ")"
 			zoneInfo = zoneInfo ..  zoneName
+
+			if currentMapID ~= sessionMapID then
+				--VALUE_ZONE:SetImage("Interface\\OPTIONSFRAME\\UI-OptionsFrame-NewFeatureIcon")
+				--icon = "Interface\\OPTIONSFRAME\\UI-OptionsFrame-NewFeatureIcon",
+			end
 		end
 	end
 
@@ -1601,6 +1655,17 @@ function tablelength(T)
   local count = 0
   for _ in pairs(T) do count = count + 1 end
   return count
+end
+
+---============================================================
+-- rounds a number to the nearest decimal places
+--
+function round(val, decimal)
+  if (decimal) then
+    return math.floor( (val * 10^decimal) + 0.5) / (10^decimal)
+  else
+    return math.floor(val+0.5)
+  end
 end
 
 
