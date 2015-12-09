@@ -382,6 +382,7 @@ local options = {
 									desc = "Show Zone Information",
 									width = "double",
 								},
+								--[[
 								showSessionDuration = {
 									type = "toggle",
 									order = 20,
@@ -389,6 +390,7 @@ local options = {
 									desc = "Show 'Session Duration'",
 									width = "double",
 								},
+								]]
 								showLootedItemValue = {
 									type = "toggle",
 									order = 30,

@@ -898,12 +898,40 @@ function ShowMainWindow(showMainUI)
 	GUI_SCROLLCONTAINER:AddChild(GUI_LOOTCOLLECTED)	
 	MAIN_UI:AddChild(GUI_SCROLLCONTAINER)
 
+	-- pause icon
+	local pauseButton = AceGUI:Create("Icon")
+	GUI_SCROLLCONTAINER:AddChild(pauseButton)
+	pauseButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
+	pauseButton:SetImageSize(16, 16)
+	pauseButton:SetWidth(16)
+	pauseButton:SetPoint("BOTTOMRIGHT", -18, -24)
+
+	-- stop icon
+	local stopButton = AceGUI:Create("Icon")
+	GUI_SCROLLCONTAINER:AddChild(stopButton)
+	stopButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
+	stopButton:SetImageSize(16, 16)
+	stopButton:SetWidth(16)
+	stopButton:SetPoint("BOTTOMRIGHT", 0, -24)
+
+	-- record icon
+	local recordButton = AceGUI:Create("Icon")
+	GUI_SCROLLCONTAINER:AddChild(recordButton)
+	recordButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
+	recordButton:SetImageSize(16, 16)
+	recordButton:SetWidth(16)
+	recordButton:SetPoint("BOTTOMRIGHT", -36, -24)
+
 	addSpacer(MAIN_UI)
 
 	dataContainer = AceGUI:Create("SimpleGroup")
 	dataContainer:SetLayout("flow")
 	dataContainer:SetFullWidth(true)
 	MAIN_UI:AddChild(dataContainer)
+
+	-- session duration
+	--VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
+	--refreshSessionDuration()
 
 	-- data rows
 	prepareDataContainer()
@@ -995,14 +1023,14 @@ function prepareDataContainer()
 		GUI_SCROLLCONTAINER:SetHeight(listHeight)
 	end
 
+	-- ...session duration
+	VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
+	refreshSessionDuration()
+
 	-- prepare data container with current rows
 	-- ...zone info
 	VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
 	refreshZoneInfo()
-
-	-- ...session duration
-	VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
-	refreshSessionDuration()
 
 	-- ...looted item value (with liv/h)
 	local totalItemValue = currentSession["liv"] or 0
