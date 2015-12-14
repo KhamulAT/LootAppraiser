@@ -916,6 +916,7 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:AddChild(GUI_SCROLLCONTAINER)
 
 	-- pause icon
+	--[[
 	BTN_PAUSE = AceGUI:Create("Icon")
 	GUI_SCROLLCONTAINER:AddChild(BTN_PAUSE)
 	BTN_PAUSE:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
@@ -927,8 +928,10 @@ function ShowMainWindow(showMainUI)
 			onBtnPauseClick()
 		end
 	)
+	]]
 
 	-- record icon
+	--[[
 	BTN_RECORD = AceGUI:Create("Icon")
 	GUI_SCROLLCONTAINER:AddChild(BTN_RECORD)
 	BTN_RECORD:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
@@ -940,7 +943,9 @@ function ShowMainWindow(showMainUI)
 			onBtnRecordClick()
 		end
 	)
+	]]
 
+	--[[
 	if isSessionRunning() then
 		BTN_PAUSE.frame:Show()
 		BTN_RECORD.frame:Hide()
@@ -948,14 +953,17 @@ function ShowMainWindow(showMainUI)
 		BTN_PAUSE.frame:Hide()
 		BTN_RECORD.frame:Show()
 	end
+	]]
 
 	-- stop icon
+	--[[
 	local stopButton = AceGUI:Create("Icon")
-	--GUI_SCROLLCONTAINER:AddChild(stopButton)
+	GUI_SCROLLCONTAINER:AddChild(stopButton)
 	stopButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
 	stopButton:SetImageSize(16, 16)
 	stopButton:SetWidth(16)
 	stopButton:SetPoint("BOTTOMRIGHT", -18, -24)
+	]]
 
 	addSpacer(MAIN_UI)
 
@@ -1039,7 +1047,7 @@ function ShowMainWindow(showMainUI)
 	end
 end
 
-
+--[[
 function onBtnPauseClick()
 	pauseStart = time()
 
@@ -1055,7 +1063,7 @@ function onBtnRecordClick()
 	BTN_PAUSE.frame:Show()
 	BTN_RECORD.frame:Hide()
 end
-
+]]
 
 function prepareDataContainer()
 	Debug("prepareDataContainer")
