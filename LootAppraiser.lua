@@ -19,6 +19,7 @@ local START_SESSION_PROMPT, MAIN_UI
 -- single elements
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE, dataContainer
 local GUI_LOOTCOLLECTED, GUI_SCROLLCONTAINER
+local BTN_PAUSE, BTN_RECORD
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -27,6 +28,8 @@ local lootAppraiserDisabled = false		-- is LootAppraiser disabled?
 
 local currentSession = nil
 local currentSessionID = nil
+local sessionPause = 0
+local pauseStart = nil
 
 local totalLootedCurrency = 0   	-- the total looted currency during a session
 local lootedItemCounter = 0			-- counter for looted items
@@ -475,6 +478,7 @@ end
 --[[-------------------------------------------------------------------------------------
 -- the main logic for item processing
 ---------------------------------------------------------------------------------------]]
+local mapIDItemCount = {}
 function handleItemLooted(itemLink, itemID, quantity)
 	Debug("handleItemLooted itemID=" .. itemID)
 
@@ -576,7 +580,12 @@ function handleItemLooted(itemLink, itemID, quantity)
 			end
 
 			-- check current mapID with session mapID
-			Debug("  current vs. session mapID: " .. GetCurrentMapAreaID() .. " vs. " .. currentSession["mapID"])
+			if currentSession["mapID"] ~= GetCurrentMapAreaID() then
+				Debug("  current vs. session mapID: " .. GetCurrentMapAreaID() .. " vs. " .. currentSession["mapID"])
+
+				-- quick fix: if we loot a noteworthy item we change the map id
+				currentSession["mapID"] = GetCurrentMapAreaID()
+			end
 		end
 	else
 		Debug("  item quality to low -> ignored")
@@ -825,7 +834,15 @@ function prepareNewSession()
 	currentSessionID = #sessions + 1
 
 	sessions[currentSessionID] = currentSession
-	--tinsert(LA.db.global.sessions, currentSession)
+
+	sessionPause = 0
+	pauseStart = nil
+
+	-- reset buttons
+	if BTN_PAUSE ~= nil and BTN_RECORD ~= nil then
+		BTN_PAUSE.frame:Show()
+		BTN_RECORD.frame:Hide()
+	end
 	-- end: prepare session (for statistics)
 end
 
@@ -850,7 +867,7 @@ function ShowMainWindow(showMainUI)
 		return
 	end 
 
-	MAIN_UI = AceGUI:Create("Frame")
+	MAIN_UI = AceGUI:Create("Window")
 	MAIN_UI:Hide()
 	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
@@ -899,28 +916,46 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:AddChild(GUI_SCROLLCONTAINER)
 
 	-- pause icon
-	local pauseButton = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(pauseButton)
-	pauseButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
-	pauseButton:SetImageSize(16, 16)
-	pauseButton:SetWidth(16)
-	pauseButton:SetPoint("BOTTOMRIGHT", -18, -24)
+	BTN_PAUSE = AceGUI:Create("Icon")
+	GUI_SCROLLCONTAINER:AddChild(BTN_PAUSE)
+	BTN_PAUSE:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
+	BTN_PAUSE:SetImageSize(16, 16)
+	BTN_PAUSE:SetWidth(16)
+	BTN_PAUSE:SetPoint("BOTTOMRIGHT", 0, -24)
+	BTN_PAUSE:SetCallback("OnClick", 
+		function()
+			onBtnPauseClick()
+		end
+	)
+
+	-- record icon
+	BTN_RECORD = AceGUI:Create("Icon")
+	GUI_SCROLLCONTAINER:AddChild(BTN_RECORD)
+	BTN_RECORD:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
+	BTN_RECORD:SetImageSize(16, 16)
+	BTN_RECORD:SetWidth(16)
+	BTN_RECORD:SetPoint("BOTTOMRIGHT", 0, -24)
+	BTN_RECORD:SetCallback("OnClick", 
+		function()
+			onBtnRecordClick()
+		end
+	)
+
+	if isSessionRunning() then
+		BTN_PAUSE.frame:Show()
+		BTN_RECORD.frame:Hide()
+	else
+		BTN_PAUSE.frame:Hide()
+		BTN_RECORD.frame:Show()
+	end
 
 	-- stop icon
 	local stopButton = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(stopButton)
+	--GUI_SCROLLCONTAINER:AddChild(stopButton)
 	stopButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
 	stopButton:SetImageSize(16, 16)
 	stopButton:SetWidth(16)
-	stopButton:SetPoint("BOTTOMRIGHT", 0, -24)
-
-	-- record icon
-	local recordButton = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(recordButton)
-	recordButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
-	recordButton:SetImageSize(16, 16)
-	recordButton:SetWidth(16)
-	recordButton:SetPoint("BOTTOMRIGHT", -36, -24)
+	stopButton:SetPoint("BOTTOMRIGHT", -18, -24)
 
 	addSpacer(MAIN_UI)
 
@@ -928,10 +963,6 @@ function ShowMainWindow(showMainUI)
 	dataContainer:SetLayout("flow")
 	dataContainer:SetFullWidth(true)
 	MAIN_UI:AddChild(dataContainer)
-
-	-- session duration
-	--VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
-	--refreshSessionDuration()
 
 	-- data rows
 	prepareDataContainer()
@@ -999,9 +1030,30 @@ function ShowMainWindow(showMainUI)
 	iconThree:SetWidth(26)
 	--MAIN_UI:AddChild(iconThree)
 
+	--local test = AceGUI:Create("Window")
+	--test:SetTitle("Test Title")
+
+
 	if showMainUI then
 		MAIN_UI:Show()
 	end
+end
+
+
+function onBtnPauseClick()
+	pauseStart = time()
+
+	BTN_PAUSE.frame:Hide()
+	BTN_RECORD.frame:Show()
+end
+
+
+function onBtnRecordClick()
+	sessionPause = sessionPause + (time() - pauseStart)
+	pauseStart = nil
+
+	BTN_PAUSE.frame:Show()
+	BTN_RECORD.frame:Hide()
 end
 
 
@@ -1103,7 +1155,14 @@ function refreshSessionDuration()
 	if not isDisplayEnabled("showSessionDuration") or VALUE_SESSIONDURATION == nil then return end
 
 	if isSessionRunning() then
-		local delta =  time() - currentSession["start"]
+		local offset
+		if pauseStart ~= nil then
+			offset = pauseStart -- session is paused
+		else
+			offset = time() -- session is running
+		end
+
+		local delta = offset - currentSession["start"] - sessionPause
 
 		-- don't show seconds
 		local noSeconds = false
@@ -1112,7 +1171,15 @@ function refreshSessionDuration()
 		end
 
 		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
-		VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+		if pauseStart ~= nil then 
+			if time() % 2 == 0 then
+				VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+			else
+				VALUE_SESSIONDURATION:SetText(" ")
+			end
+		else
+			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+		end
 	else
 		--tooltip:AddLine("Session is not running")
 		VALUE_SESSIONDURATION:SetText("not running")

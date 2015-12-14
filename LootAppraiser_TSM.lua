@@ -9,7 +9,7 @@ if(not TSM) then return end
 local TSMAPI = _G.TSMAPI;
 local TSMVERSION = TSM._version;
 
-LA.TSM3 = string.startsWith("" .. TSMVERSION, "3X")
+LA.TSM3 = string.startsWith("" .. TSMVERSION, "v3")
 
 --------------------------------
 -- Wrapper for TSMAPI methods --
