@@ -37,6 +37,7 @@ widget\LootAppraiserGUIContainer-Frame.lua
 
 #Test.lua
 LootAppraiser.lua
+LootAppraiser_MainUI.lua
 LootAppraiser_Config.lua
 LootAppraiser_SalvageCrate.lua
 LootAppraiser_TSM.lua

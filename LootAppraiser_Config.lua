@@ -20,7 +20,7 @@ local options = {
 			end,
 			set = function(info, value) 
 				LA.db.profile[info[#info]] = value;
-				LA:refreshStatusText()
+				refreshStatusText()
 			end,
 			childGroups = "tab",
 			args = {
@@ -47,7 +47,7 @@ local options = {
 									LA:Print("Quality Filter set to: " .. LA.QUALITY_FILTER[value] .. " and above.")
 								end
 								LA.db.profile.general[info[#info]] = value;
-								LA:refreshStatusText()
+								refreshStatusText()
 							end,
 						},
 						spacer = {
@@ -67,7 +67,7 @@ local options = {
 									LA:Print("Gold alert threshold set: " .. value .. " gold or higher.")
 								end
 								LA.db.profile.general[info[#info]] = value;
-								LA:refreshStatusText()
+								refreshStatusText()
 							end,
 						},
 						ignoreRandomEnchants = {
@@ -87,7 +87,7 @@ local options = {
 						surpressSessionStartDialog = {
 							type = "toggle",
 							order = 50,
-							name = "Suppress 'Start Session' dialogue during the first looting.",
+							name = "Suppress 'Start Session' dialogue during first loot.",
 							desc = "Attention! If the dialog is suppressed, the session must be started by hand (left-click on the minimap icon)",
 							width = "double",
 							set = function(info, value) 
@@ -124,7 +124,7 @@ local options = {
 									LA:Print("Price source changed to: " .. value)
 								end
 								LA.db.profile.pricesource[info[#info]] = value;
-								LA:refreshStatusText()
+								refreshStatusText()
 							end,
 						},
 						customPriceSource = {
@@ -375,6 +375,7 @@ local options = {
 									step = 1,
 									width = "double",
 								},
+								--[[
 								showZoneInfo = {
 									type = "toggle",
 									order = 10,
@@ -382,6 +383,7 @@ local options = {
 									desc = "Show Zone Information",
 									width = "double",
 								},
+								]]
 								--[[
 								showSessionDuration = {
 									type = "toggle",
@@ -429,9 +431,43 @@ local options = {
 							},
 							plugins = {},
 						},
-						displayTooltipOptions = {
+						displayLastNoteworthyItemOptions = {
 							type = "group",
 							order = 20,
+							name = "Last Noteworthy Item UI",
+							hidden = false,
+							inline = true,
+							args = {
+								enableLastNoteworthyItemUI = {
+									type = "toggle",
+									order = 10,
+									name = "Enable 'Last Noteworthy Item' UI",
+									desc = "Enables the 'Last Noteworthy Item' UI",
+									width = "double",
+								},
+							},
+							plugins = {},
+						},
+						displayLootAppraiserLiteOptions = {
+							type = "group",
+							order = 30,
+							name = "Loot Appraiser Lite UI",
+							hidden = false,
+							inline = true,
+							args = {
+								enableGoldAlertThresholdUI = {
+									type = "toggle",
+									order = 10,
+									name = "Enable 'Loot Appraiser Lite' UI",
+									desc = "Enables the 'Loot Appraiser Lite' UI which shows the looted item value.",
+									width = "double",
+								},
+							},
+							plugins = {},
+						},
+						displayTooltipOptions = {
+							type = "group",
+							order = 40,
 							name = "Tooltip",
 							hidden = false,
 							inline = true,

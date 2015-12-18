@@ -17,7 +17,8 @@ LA.METADATA = {
 -- frames
 local START_SESSION_PROMPT, MAIN_UI 
 -- single elements
-local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_SESSIONDURATION, VALUE_ZONE, dataContainer
+local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_ZONE, VALUE_SESSIONDURATION, dataContainer
+local STATUSTEXT
 local GUI_LOOTCOLLECTED, GUI_SCROLLCONTAINER
 local BTN_PAUSE, BTN_RECORD
 
@@ -444,30 +445,6 @@ function onLootOpened(event, ...)
 				savedLoot[tostring(i)] = data
 
 			end
-
---[[
-			if slotType == 1 then
-				-- item looted
-				--Debug("item looted")
-				
-				-- Get Information about Item Looted --
-				local itemLink = GetLootSlotLink(i)
-				local itemID = LA:GetItemID(itemLink, true) -- get item id
-
-				local quantity = select(3, GetLootSlotInfo(i))
-
-				handleItemLooted(itemLink, itemID, quantity)
-
-			elseif slotType == 2 then
-				-- currency looted
-				--Debug("currency looted")
-
-				local lootedCoin = select(2, GetLootSlotInfo(i))
-				local lootedCopper = getLootedCopperFromText(lootedCoin)
-
-				handleCurrencyLooted(lootedCopper)
-			end
-]]
 		end
 
 		Debug("loot opened finished with " .. tablelength(savedLoot) .. " items")
@@ -613,7 +590,6 @@ end
 -- save the current loot during 'start session?' dialog so we miss no loot if we start
 -- a new session
 ---------------------------------------------------------------------------------------]]
-
 function saveCurrentLoot()
 	if not tablelength(savedLoot) == 0 then Debug("savedLoot is not empty...") end
 
@@ -659,6 +635,344 @@ end
 --[[-------------------------------------------------------------------------------------
 -- GUIs
 ---------------------------------------------------------------------------------------]]
+local PaneBackdrop  = {
+	bgFile = "Interface\\PaperDollInfoFrame\\UI-GearManager-Title-Background",
+	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+	tile = true, tileSize = 32, edgeSize = 16,
+	insets = { left = 3, right = 3, top = 5, bottom = 3 }
+}
+
+
+--[[-------------------------------------------------------------------------------------
+-- the main ui
+---------------------------------------------------------------------------------------]]
+local total = 0
+function ShowMainWindow(showMainUI) 
+	Debug("ShowMainWindow")
+
+	if MAIN_UI and showMainUI then 
+		MAIN_UI:Show()
+		return
+	end 
+
+	MAIN_UI = AceGUI:Create("Window")
+	MAIN_UI:Hide()
+	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
+	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
+	MAIN_UI:SetLayout("Flow")
+	MAIN_UI:SetWidth(400)
+	MAIN_UI:EnableResize(false)
+	MAIN_UI.frame:SetScript("OnUpdate", 
+		function(event, elapsed)
+			total = total + elapsed
+    		if total >= 1 then
+    			refreshMainUI()
+		        total = 0
+		    end	
+		end
+	)
+	MAIN_UI:SetCallback("OnClose",
+		function()
+			Debug("Session ended")
+		end
+	)
+
+	-- START: statustext
+	local statusbg = CreateFrame("Button", nil, MAIN_UI.frame)
+	statusbg:SetPoint("BOTTOMLEFT", MAIN_UI.frame, "BOTTOMLEFT", 5, 3)
+	statusbg:SetPoint("BOTTOMRIGHT", MAIN_UI.frame, "BOTTOMRIGHT", -2, 3)
+	statusbg:SetHeight(24)
+	statusbg:SetBackdrop(PaneBackdrop)
+
+	STATUSTEXT = statusbg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	STATUSTEXT:SetPoint("TOPLEFT", 7, -2)
+	STATUSTEXT:SetPoint("BOTTOMRIGHT", -7, 2)
+	STATUSTEXT:SetHeight(20)
+	STATUSTEXT:SetJustifyH("LEFT")
+	STATUSTEXT:SetText("")
+
+ 	refreshStatusText()
+ 	-- START: statustext
+
+	-- loot collected list --
+	local backdrop = {
+		bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+		edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]], 
+		edgeSize = 2,
+		insets = { left = 1, right = 1, top = 1, bottom = 1 }
+	}
+
+	GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
+	GUI_SCROLLCONTAINER:SetFullWidth(true)
+	GUI_SCROLLCONTAINER:SetHeight(150)
+	GUI_SCROLLCONTAINER:SetLayout("Fill")
+	GUI_SCROLLCONTAINER.frame:SetBackdrop(backdrop)
+	GUI_SCROLLCONTAINER.frame:SetBackdropColor(0, 0, 0)
+	GUI_SCROLLCONTAINER.frame:SetBackdropBorderColor(0.4, 0.4, 0.4)
+
+	GUI_LOOTCOLLECTED = AceGUI:Create("ScrollFrame")
+	GUI_LOOTCOLLECTED:SetLayout("Flow")
+	GUI_SCROLLCONTAINER:AddChild(GUI_LOOTCOLLECTED)	
+	MAIN_UI:AddChild(GUI_SCROLLCONTAINER)
+
+	--addSpacer(MAIN_UI)
+
+	dataContainer = AceGUI:Create("SimpleGroup")
+	dataContainer:SetLayout("flow")
+	dataContainer:SetFullWidth(true)
+	MAIN_UI:AddChild(dataContainer)
+
+	-- data rows
+	prepareDataContainer()
+	addSpacer(MAIN_UI)
+
+	-- button sell trash --
+	local BUTTON_SELLTRASH = AceGUI:Create("Button")
+	BUTTON_SELLTRASH:SetAutoWidth(true)
+	BUTTON_SELLTRASH:SetText("Sell Trash")
+	BUTTON_SELLTRASH:SetCallback("OnClick", 
+		function()
+			onBtnSellTrashClick()
+		end
+	)
+	MAIN_UI:AddChild(BUTTON_SELLTRASH)
+
+	-- button trash grays --
+	local BUTTON_DESTROYTRASH = AceGUI:Create("Button")
+	BUTTON_DESTROYTRASH:SetAutoWidth(true)
+	BUTTON_DESTROYTRASH:SetText("Destroy Trash")
+	BUTTON_DESTROYTRASH:SetCallback("OnClick", function()
+		onBtnDestroyTrashClick()
+	end)
+	MAIN_UI:AddChild(BUTTON_DESTROYTRASH)
+
+	-- button new session --
+	local BUTTON_NEWSESSION = AceGUI:Create("Button")
+	BUTTON_NEWSESSION:SetAutoWidth(true)
+	BUTTON_NEWSESSION:SetText("New Session")
+	BUTTON_NEWSESSION:SetCallback("OnClick", function()
+		onBtnNewSessionClick()
+	end)
+	MAIN_UI:AddChild(BUTTON_NEWSESSION)
+
+	-- button stop session --
+	local BUTTON_STOPSESSION = AceGUI:Create("Button")
+	BUTTON_STOPSESSION:SetAutoWidth(true)
+	BUTTON_STOPSESSION:SetText("Stop")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		onBtnStopSessionClick()
+	end)
+	MAIN_UI:AddChild(BUTTON_STOPSESSION)
+
+	if showMainUI then
+		MAIN_UI:Show()
+	end
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- prepare the data container with the current configuration
+---------------------------------------------------------------------------------------]]
+function prepareDataContainer()
+	Debug("prepareDataContainer")
+
+	if currentSession == nil then return end
+
+	-- release data container widgets
+	if dataContainer ~= nil then
+		dataContainer:ReleaseChildren()
+	end
+
+	-- resize 
+	local listHeight
+	if GUI_SCROLLCONTAINER ~= nil then
+		local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+		listHeight = rowCount * 15
+		GUI_SCROLLCONTAINER:SetHeight(listHeight)
+	end
+
+	-- prepare data container with current rows
+
+	-- zone and session duration
+	local labelWidth = 179
+	local valueWidth = 186
+
+	local grp = AceGUI:Create("SimpleGroup")
+	grp:SetLayout("flow")
+	grp:SetFullWidth(true)
+	dataContainer:AddChild(grp)
+
+	-- add zone...
+	local currentMapID = GetCurrentMapAreaID()
+	local zoneInfo = GetMapNameByID(currentMapID)
+	
+	VALUE_ZONE = AceGUI:Create("Label")
+	VALUE_ZONE:SetText(zoneInfo)
+	VALUE_ZONE:SetWidth(labelWidth) -- TODO
+	VALUE_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	VALUE_ZONE.label:SetJustifyH("LEFT")
+	grp:AddChild(VALUE_ZONE)
+
+	-- ...and session duration
+    VALUE_SESSIONDURATION = AceGUI:Create("Label")
+	VALUE_SESSIONDURATION:SetText("not running")
+	VALUE_SESSIONDURATION:SetWidth(valueWidth) -- TODO
+	VALUE_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
+	grp:AddChild(VALUE_SESSIONDURATION)
+
+	-- ...session duration
+	--VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session:", "not running")
+	--refreshSessionDuration()
+
+	-- ...zone info
+	--VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
+	--refreshZoneInfo()
+
+	-- ...looted item value (with liv/h)
+	local totalItemValue = currentSession["liv"] or 0
+	local livValue = LA:FormatTextMoney(totalItemValue)
+	if isDisplayEnabled("showLootedItemValuePerHour") then
+		livValue = livValue .. " (0|cffffd100g|r/h)"
+	end
+
+	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
+
+	-- ...looted currency
+	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
+	VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
+
+	-- ...looted item counter
+	VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
+
+	-- ...noteworthy item counter
+	VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
+
+	-- and re-layout
+	MAIN_UI:DoLayout()
+	MAIN_UI:SetHeight(112 + listHeight + dataContainer.frame:GetHeight())
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- add a row with label and value to the frame
+---------------------------------------------------------------------------------------]]
+function defineRowForFrame(frame, id, name, value)
+	Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
+
+	if not isDisplayEnabled(id) or frame == nil then 
+		Debug("  -> not visible")
+		return 
+	end
+
+	local labelWidth = 120
+	local valueWidth = 245
+
+	local grp = AceGUI:Create("SimpleGroup")
+	grp:SetLayout("flow")
+	grp:SetFullWidth(true)
+	frame:AddChild(grp)
+
+	-- add label...
+	local label = AceGUI:Create("Label")
+	label:SetText(name)
+	label:SetWidth(labelWidth) -- TODO
+	label:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	label.label:SetJustifyH("LEFT")
+	grp:AddChild(label)
+
+	-- ...and value
+	local VALUE = AceGUI:Create("Label")
+	VALUE:SetText(value)
+	VALUE:SetWidth(valueWidth) -- TODO
+	VALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	VALUE.label:SetJustifyH("RIGHT")
+	grp:AddChild(VALUE)
+
+	return VALUE
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- refresh the main ui
+---------------------------------------------------------------------------------------]]
+function refreshMainUI()
+	--Debug("refreshMainUI")
+
+	-- session duration
+	if isSessionRunning() then
+		local offset
+		if pauseStart ~= nil then
+			offset = pauseStart -- session is paused
+		else
+			offset = time() -- session is running
+		end
+
+		local delta = offset - currentSession["start"] - sessionPause
+
+		-- don't show seconds
+		local noSeconds = false
+		if delta > 3600 then
+			noSeconds = true
+		end
+
+		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
+		--if pauseStart ~= nil then 
+		--	if time() % 2 == 0 then
+		--		VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+		--	else
+		--		VALUE_SESSIONDURATION:SetText(" ")
+		--	end
+		--else
+			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+		--end
+	else
+		--tooltip:AddLine("Session is not running")
+		VALUE_SESSIONDURATION:SetText("not running")
+	end
+
+	-- zone info
+	if VALUE_ZONE ~= nil then 
+		local zoneInfo = ""
+		-- session zone (if a session is running)
+		if currentSession ~= nil and currentSession["mapID"] ~= nil then
+			local sessionMapID = currentSession["mapID"]
+
+			if sessionMapID ~= nil then
+				local zoneName = GetMapNameByID(sessionMapID)
+
+				zoneInfo = zoneInfo ..  zoneName
+			end
+		else
+			-- current zone
+			local currentMapID = GetCurrentMapAreaID()
+
+			zoneInfo = GetMapNameByID(currentMapID)
+		end
+
+		VALUE_ZONE:SetText(zoneInfo)
+	end
+
+	-- looted item value
+	if isDisplayEnabled("showLootedItemValuePerHour") and isSessionRunning() then
+		local totalItemValue = currentSession["liv"] or 0
+		if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
+			local livValue = LA:FormatTextMoney(totalItemValue)
+			livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
+
+			-- add to main ui
+			VALUE_LOOTEDITEMVALUE:SetText(livValue)
+		end
+
+		-- save session (for statistics)
+		if totalItemValue > 0 then
+			currentSession["liv"] = totalItemValue
+			currentSession["end"] = time()
+			currentSession["totalItemsLooted"] = totalItemLootedCounter
+		end
+	end
+end
+
 
 -- 'start session' dialog --
 function ShowStartSessionDialog() 
@@ -838,11 +1152,15 @@ function prepareNewSession()
 	sessionPause = 0
 	pauseStart = nil
 
+	sessionIsRunning = true
+
 	-- reset buttons
+	--[[
 	if BTN_PAUSE ~= nil and BTN_RECORD ~= nil then
 		BTN_PAUSE.frame:Show()
 		BTN_RECORD.frame:Hide()
 	end
+	]]
 	-- end: prepare session (for statistics)
 end
 
@@ -857,341 +1175,53 @@ function DisableLootAppraiser()
 end
 
 
--- main window --
-local total = 0
-function ShowMainWindow(showMainUI) 
-	Debug("ShowMainWindow")
+--[[------------------------------------------------------------------------
+-- Event handler for button 'new session'
+--------------------------------------------------------------------------]]
+function onBtnStopSessionClick()
+	Debug("onBtnStopSessionClick")
 
-	if MAIN_UI and showMainUI then 
-		MAIN_UI:Show()
-		return
-	end 
-
-	MAIN_UI = AceGUI:Create("Window")
-	MAIN_UI:Hide()
-	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
-	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
-	MAIN_UI:SetLayout("Flow")
-	MAIN_UI:SetWidth(400)
-	--MAIN_UI:SetAutoAdjustHeight(true)
-	MAIN_UI:EnableResize(false)
-	MAIN_UI.frame:SetScript("OnUpdate", 
-		function(event, elapsed)
-			total = total + elapsed
-    		if total >= 1 then
-		        refreshZoneInfo()
-		        refreshSessionDuration()
-		        refreshLivPerHour()
-		        total = 0
-		    end	
-		end
-	)
-	MAIN_UI:SetCallback("OnClose",
-		function()
-			Debug("Session ended")
-		end
-	)
-
-	LA:refreshStatusText()
-
-	-- loot collected list --
-	local backdrop = {
-		bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
-		edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]], 
-		edgeSize = 2,
-		insets = { left = 1, right = 1, top = 1, bottom = 1 }
-	}
-
-	GUI_SCROLLCONTAINER = AceGUI:Create("SimpleGroup")
-	GUI_SCROLLCONTAINER:SetFullWidth(true)
-	GUI_SCROLLCONTAINER:SetHeight(150)
-	GUI_SCROLLCONTAINER:SetLayout("Fill")
-	GUI_SCROLLCONTAINER.frame:SetBackdrop(backdrop)
-	GUI_SCROLLCONTAINER.frame:SetBackdropColor(0, 0, 0)
-	GUI_SCROLLCONTAINER.frame:SetBackdropBorderColor(0.4, 0.4, 0.4)
-
-	GUI_LOOTCOLLECTED = AceGUI:Create("ScrollFrame")
-	GUI_LOOTCOLLECTED:SetLayout("Flow")
-	GUI_SCROLLCONTAINER:AddChild(GUI_LOOTCOLLECTED)	
-	MAIN_UI:AddChild(GUI_SCROLLCONTAINER)
-
-	-- pause icon
-	--[[
-	BTN_PAUSE = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(BTN_PAUSE)
-	BTN_PAUSE:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
-	BTN_PAUSE:SetImageSize(16, 16)
-	BTN_PAUSE:SetWidth(16)
-	BTN_PAUSE:SetPoint("BOTTOMRIGHT", 0, -24)
-	BTN_PAUSE:SetCallback("OnClick", 
-		function()
-			onBtnPauseClick()
-		end
-	)
-	]]
-
-	-- record icon
-	--[[
-	BTN_RECORD = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(BTN_RECORD)
-	BTN_RECORD:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
-	BTN_RECORD:SetImageSize(16, 16)
-	BTN_RECORD:SetWidth(16)
-	BTN_RECORD:SetPoint("BOTTOMRIGHT", 0, -24)
-	BTN_RECORD:SetCallback("OnClick", 
-		function()
-			onBtnRecordClick()
-		end
-	)
-	]]
-
-	--[[
-	if isSessionRunning() then
-		BTN_PAUSE.frame:Show()
-		BTN_RECORD.frame:Hide()
-	else
-		BTN_PAUSE.frame:Hide()
-		BTN_RECORD.frame:Show()
-	end
-	]]
-
-	-- stop icon
-	--[[
-	local stopButton = AceGUI:Create("Icon")
-	GUI_SCROLLCONTAINER:AddChild(stopButton)
-	stopButton:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
-	stopButton:SetImageSize(16, 16)
-	stopButton:SetWidth(16)
-	stopButton:SetPoint("BOTTOMRIGHT", -18, -24)
-	]]
-
-	addSpacer(MAIN_UI)
-
-	dataContainer = AceGUI:Create("SimpleGroup")
-	dataContainer:SetLayout("flow")
-	dataContainer:SetFullWidth(true)
-	MAIN_UI:AddChild(dataContainer)
-
-	-- data rows
-	prepareDataContainer()
-	addSpacer(MAIN_UI)
-
-	-- label 'trash:'
-	local labelTrash = AceGUI:Create("Label")
-	labelTrash:SetText("Trash: ")
-	--labelTrash.label:SetJustifyH("RIGHT")
-	labelTrash:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	labelTrash:SetWidth(40)
-	--MAIN_UI:AddChild(labelTrash)
-
-	-- button sell trash --
-	local BUTTON_SELLTRASH = AceGUI:Create("Button")
-	BUTTON_SELLTRASH:SetAutoWidth(true)
-	BUTTON_SELLTRASH:SetText("Sell Trash")
-	BUTTON_SELLTRASH:SetCallback("OnClick", 
-		function()
-			onBtnSellTrashClick()
-		end
-	)
-	MAIN_UI:AddChild(BUTTON_SELLTRASH)
-
-	-- button trash grays --
-	local BUTTON_DESTROYTRASH = AceGUI:Create("Button")
-	BUTTON_DESTROYTRASH:SetAutoWidth(true)
-	BUTTON_DESTROYTRASH:SetText("Destroy Trash")
-	BUTTON_DESTROYTRASH:SetCallback("OnClick", function()
-		onBtnDestroyTrashClick()
-	end)
-	MAIN_UI:AddChild(BUTTON_DESTROYTRASH)
-
-	-- button new session --
-	local BUTTON_NEWSESSION = AceGUI:Create("Button")
-	BUTTON_NEWSESSION:SetAutoWidth(true)
-	BUTTON_NEWSESSION:SetText("New Session")
-	BUTTON_NEWSESSION:SetCallback("OnClick", function()
-		onBtnNewSessionClick()
-	end)
-	MAIN_UI:AddChild(BUTTON_NEWSESSION)
-
-	local labelSession = AceGUI:Create("Label")
-	labelSession:SetText("Session: ")
-	labelSession.label:SetJustifyH("RIGHT")
-	labelSession:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	labelSession:SetWidth(85)
-	--MAIN_UI:AddChild(labelSession)
-
-	local iconOne = AceGUI:Create("Icon")
-	iconOne:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\record")
-	iconOne:SetImageSize(24, 24)
-	iconOne:SetWidth(26)
-	--MAIN_UI:AddChild(iconOne)
-
-	local iconTwo = AceGUI:Create("Icon")
-	iconTwo:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\pause")
-	iconTwo:SetImageSize(24, 24)
-	iconTwo:SetWidth(26)
-	--MAIN_UI:AddChild(iconTwo)
-
-	local iconThree = AceGUI:Create("Icon")
-	iconThree:SetImage("Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\stop")
-	iconThree:SetImageSize(24, 24)
-	iconThree:SetWidth(26)
-	--MAIN_UI:AddChild(iconThree)
-
-	--local test = AceGUI:Create("Window")
-	--test:SetTitle("Test Title")
-
-
-	if showMainUI then
-		MAIN_UI:Show()
-	end
-end
-
---[[
-function onBtnPauseClick()
-	pauseStart = time()
-
-	BTN_PAUSE.frame:Hide()
-	BTN_RECORD.frame:Show()
-end
-
-
-function onBtnRecordClick()
-	sessionPause = sessionPause + (time() - pauseStart)
-	pauseStart = nil
-
-	BTN_PAUSE.frame:Show()
-	BTN_RECORD.frame:Hide()
-end
-]]
-
-function prepareDataContainer()
-	Debug("prepareDataContainer")
-
-	if currentSession == nil then return end
-
-	-- release data container widgets
-	if dataContainer ~= nil then
-		dataContainer:ReleaseChildren()
-	end
-
-	-- resize 
-	local listHeight
-	if GUI_SCROLLCONTAINER ~= nil then
-		local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
-		listHeight = rowCount * 15
-		GUI_SCROLLCONTAINER:SetHeight(listHeight)
-	end
-
-	-- ...session duration
-	VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session Duration:", "0 sec.")
-	refreshSessionDuration()
-
-	-- prepare data container with current rows
-	-- ...zone info
-	VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
-	refreshZoneInfo()
-
-	-- ...looted item value (with liv/h)
-	local totalItemValue = currentSession["liv"] or 0
-	local livValue = LA:FormatTextMoney(totalItemValue)
-	if isDisplayEnabled("showLootedItemValuePerHour") then
-		livValue = livValue .. " (0|cffffd100g|r/h)"
-	end
-
-	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
-
-	-- ...looted currency
-	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
-	VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
-
-	-- ...looted item counter
-	VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
-
-	-- ...noteworthy item counter
-	VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
-
-	-- and re-layout
-	MAIN_UI:DoLayout()
-	MAIN_UI:SetHeight(135 + listHeight + dataContainer.frame:GetHeight())
-end
-
-
---[[-------------------------------------------------------------------------------------
--- add a row with label and value to the frame
----------------------------------------------------------------------------------------]]
-function defineRowForFrame(frame, id, name, value)
-	Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
-
-	if not isDisplayEnabled(id) or frame == nil then 
-		Debug("  -> not visible")
-		return 
-	end
-
-	local labelWidth = 120
-	local valueWidth = 240
-
-	local grp = AceGUI:Create("SimpleGroup")
-	grp:SetLayout("flow")
-	grp:SetFullWidth(true)
-	frame:AddChild(grp)
-
-	-- add label...
-	local label = AceGUI:Create("Label")
-	label:SetText(name)
-	label:SetWidth(labelWidth) -- TODO
-	label:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	label.label:SetJustifyH("LEFT")
-	grp:AddChild(label)
-
-	-- ...and value
-	local VALUE = AceGUI:Create("Label")
-	VALUE:SetText(value)
-	VALUE:SetWidth(valueWidth) -- TODO
-	VALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
-	VALUE.label:SetJustifyH("RIGHT")
-	grp:AddChild(VALUE)
-
-	return VALUE
-end
-
-
---[[-------------------------------------------------------------------------------------
--- refresh the session duration on the main ui
----------------------------------------------------------------------------------------]]
-function refreshSessionDuration()
-	if not isDisplayEnabled("showSessionDuration") or VALUE_SESSIONDURATION == nil then return end
-
-	if isSessionRunning() then
-		local offset
-		if pauseStart ~= nil then
-			offset = pauseStart -- session is paused
+	-- save session
+	if currentSession ~= nil then
+		if currentSession["liv"] and currentSession["liv"] > 0 then
+			Debug("  -> set session end")
+			currentSession["end"] = time()
+			currentSession["totalItemsLooted"] = totalItemLootedCounter
 		else
-			offset = time() -- session is running
+			-- delete current session
+			local sessions = LA.db.global.sessions
+			sessions[currentSessionID] = nil
+			-- TODO delete currentSession
 		end
-
-		local delta = offset - currentSession["start"] - sessionPause
-
-		-- don't show seconds
-		local noSeconds = false
-		if delta > 3600 then
-			noSeconds = true
-		end
-
-		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
-		if pauseStart ~= nil then 
-			if time() % 2 == 0 then
-				VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-			else
-				VALUE_SESSIONDURATION:SetText(" ")
-			end
-		else
-			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-		end
-	else
-		--tooltip:AddLine("Session is not running")
-		VALUE_SESSIONDURATION:SetText("not running")
 	end
+
+	-- reset all values
+	prepareNewSession()
+	currentSession = {}
+	sessionIsRunning = false
+
+	totalLootedCurrency = 0   	-- the total looted currency during a session
+	if VALUE_TOTALCURRENCY ~= nil then
+		VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
+	end
+
+	lootedItemCounter = 0			-- counter for looted items
+	totalItemLootedCounter = 0
+	if VALUE_LOOTEDITEMCOUNTER ~= nil then
+		VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
+	end
+
+	noteworthyItemCounter = 0		-- counter for noteworthy items
+	if VALUE_NOTEWORTHYITEMCOUNTER ~= nil then
+		VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
+	end
+
+	if GUI_LOOTCOLLECTED ~= nil then
+		GUI_LOOTCOLLECTED:ReleaseChildren()
+	end
+	lootCollectedLastEntry = nil
+
+	prepareStatisticGroups()
 end
 
 
@@ -1202,15 +1232,17 @@ function onBtnNewSessionClick()
 	Debug("onBtnNewSessionClick")
 
 	-- save session
-	if currentSession["liv"] > 0 then
-		Debug("  -> set session end")
-		currentSession["end"] = time()
-		currentSession["totalItemsLooted"] = totalItemLootedCounter
-	else
-		-- delete current session
-		local sessions = LA.db.global.sessions
-		sessions[currentSessionID] = nil
-		-- TODO delete currentSession
+	if currentSession ~= nil then
+		if currentSession["liv"] and currentSession["liv"] > 0 then
+			Debug("  -> set session end")
+			currentSession["end"] = time()
+			currentSession["totalItemsLooted"] = totalItemLootedCounter
+		else
+			-- delete current session
+			local sessions = LA.db.global.sessions
+			sessions[currentSessionID] = nil
+			-- TODO delete currentSession
+		end
 	end
 
 	-- reset all values
@@ -1245,18 +1277,7 @@ end
 -- Event handler for button 'destroy trash'
 --------------------------------------------------------------------------]]
 function onBtnDestroyTrashClick()
-	--Debug("  onBtnDestroyTrashClick")
-
 	local destroyCounter = 0
-
-	-- prepare blacklist (if activated for destroy trash)
-	--[[
-	local blacklistItems = ITEM_FILTER_BLACKLIST
-	if isDestroyBlacklistedItems() then
-		-- preload blacklist from TSM group
-	 	blacklistItems = LA:GetGroupItems(getTsmGroup4Blacklist())
-	end
-	]]
 
 	for bag = 0, 4 do
 		for slot = 1, GetContainerNumSlots(bag) do
@@ -1271,11 +1292,8 @@ function onBtnDestroyTrashClick()
 			end
 
 			-- blacklist
-			--Debug("    isDestroyBlacklistedItems=" .. tostring(isDestroyBlacklistedItems()))
 			if link and isDestroyBlacklistedItems() then
 				local itemID = LA:GetItemID(link)
-				--if LA:isItemInList(itemID, blacklistItems) then
-				--Debug("    isItemBlacklisted=" .. tostring(isItemBlacklisted(itemID)))
 				if isItemBlacklisted(itemID) then
 					PickupContainerItem(bag, slot)
 					DeleteCursorItem()
@@ -1351,32 +1369,6 @@ end
 
 
 --[[-------------------------------------------------------------------------------------
--- refresh UI with the new calculated looted item value per hour
----------------------------------------------------------------------------------------]]
-function refreshLivPerHour()
-	if not isDisplayEnabled("showLootedItemValuePerHour") then return end
-
-	local totalItemValue = currentSession["liv"] or 0
-	if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
-		local livValue = LA:FormatTextMoney(totalItemValue)
-		livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
-
-		-- add to main ui
-		VALUE_LOOTEDITEMVALUE:SetText(livValue)
-	end
-
-	-- save session (for statistics)
-	if totalItemValue > 0 then
-		--Debug("  -> session saved...")
-
-		currentSession["liv"] = totalItemValue
-		currentSession["end"] = time()
-		currentSession["totalItemsLooted"] = totalItemLootedCounter
-	end
-end
-
-
---[[-------------------------------------------------------------------------------------
 -- calculate looted item value / hour
 ---------------------------------------------------------------------------------------]]
 function calcLootedItemValuePerHour()
@@ -1391,8 +1383,13 @@ function calcLootedItemValuePerHour()
 	end
 
 	local totalItemValue = currentSession["liv"] or 0
-	local livPerHour = (totalItemValue/delta*factor)
-	local livGoldPerHour = floor(livPerHour/10000)
+	local livGoldPerHour = nil
+	if totalItemValue == 0 then
+		livGoldPerHour = 0
+	else
+		local livPerHour = (totalItemValue/delta*factor)
+		livGoldPerHour = floor(livPerHour/10000)
+	end
 
 	return tostring(livGoldPerHour)
 end
@@ -1501,49 +1498,17 @@ end
 
 
 --[[-------------------------------------------------------------------------------------
--- refresh the zone informations
----------------------------------------------------------------------------------------]]
-function refreshZoneInfo()
-	if not isDisplayEnabled("showZoneInfo") or VALUE_ZONE == nil then return end
-
-	local zoneInfo = ""
-
-	-- current zone
-	local currentMapID = GetCurrentMapAreaID()
-	if currentMapID ~= nil then
-		--zoneInfo = zoneInfo .. GetMapNameByID(currentMapID)
-	end
-
-	-- session zone (if a session is running)
-	if currentSession ~= nil and currentSession["mapID"] ~= nil then
-		local sessionMapID = currentSession["mapID"]
-
-		if sessionMapID ~= nil then
-			local zoneName = GetMapNameByID(sessionMapID)
-
-			--zoneInfo = zoneInfo .. " (" .. zoneName .. ")"
-			zoneInfo = zoneInfo ..  zoneName
-
-			if currentMapID ~= sessionMapID then
-				--VALUE_ZONE:SetImage("Interface\\OPTIONSFRAME\\UI-OptionsFrame-NewFeatureIcon")
-				--icon = "Interface\\OPTIONSFRAME\\UI-OptionsFrame-NewFeatureIcon",
-			end
-		end
-	end
-
-	VALUE_ZONE:SetText(zoneInfo)
-end
-
---[[-------------------------------------------------------------------------------------
 -- refresh the status bar with the current settings
 ---------------------------------------------------------------------------------------]]
-function LA:refreshStatusText()
+function refreshStatusText()
 	if MAIN_UI ~= nil then
 		-- prepare status text
-		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(getQualityFilter())]
-		preparedText = preparedText .. " - GAT: |cffffffff" .. getGoldAlertThreshold() .. "|cffffd100g|r"
+		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(getQualityFilter())] 								-- filter
+		preparedText = preparedText .. " - GAT: |cffffffff" .. getGoldAlertThreshold() .. "|cffffd100g|r"				-- gat
+		preparedText = preparedText .. " - Source: |cffffffff" .. tostring(LA.db.profile.pricesource.source) .. "|r" 	-- price source
 		
-		MAIN_UI:SetStatusText(preparedText)
+		--MAIN_UI:SetStatusText(preparedText)
+		STATUSTEXT:SetText(preparedText)
 	end
 end
 
@@ -1552,12 +1517,12 @@ end
 -- helper methods
 ---------------------------------------------------------------------------------------]]
 
--- add a blank line to the given frame 
+-- add a blank line to the given frame
 function addSpacer(frame)
 	local SPACER = AceGUI:Create("Label")
 	SPACER:SetText("   ")
 	SPACER:SetWidth(350)
-	--SPACER:SetFont("Fonts\\FRIZQT__.TTF", 12)
+	--SPACER:SetFont("Fonts\\FRIZQT__.TTF", 6)
 	frame:AddChild(SPACER)
 end
 
@@ -1629,7 +1594,7 @@ function getIgnoreRandomEnchants()
 		LA.db.profile.general.ignoreRandomEnchants = dbDefaults.profile.general.ignoreRandomEnchants
 	end
 
-	return LA.db.profile.ignoreRandomEnchants
+	return LA.db.profile.general.ignoreRandomEnchants
 end
 
 function LA:getSessions()
