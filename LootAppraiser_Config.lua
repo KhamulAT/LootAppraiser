@@ -530,19 +530,33 @@ function Config:OnInitialize()
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser, options.args.general)
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Statistic", options.args.statistic, LootAppraiser)
 
-	AceConfigDialog:AddToBlizOptions(LootAppraiser)
+	local lootAppraiserConfig = AceConfigDialog:AddToBlizOptions(LootAppraiser)
+	-- add reset function
+	lootAppraiserConfig.default = resetDB
+
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
 
 	prepareStatisticGroups() -- prepare statistic groups
 
 	--testFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser) -- test
-
 	--test()
 
 	-- Fix sink config options
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.order = 200
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.inline = true
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.name = ""
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- reset loot appraiser db
+---------------------------------------------------------------------------------------]]
+function resetDB()
+	Debug("resetDB")
+
+	LA.db:ResetProfile(false, true)
+
+	AceConfigRegistry:NotifyChange(LootAppraiser)
 end
 
 
@@ -711,18 +725,6 @@ function Config:OnDisable()
 
 end
 
---[[
-function onShowStatistics(event, ... )
-	Debug("  onShowStatistics")
-
-	local childs = statisticFrame:GetChildren()
-	Debug("  #" .. tostring(statisticFrame:GetNumChildren()))
-
-	for i, child in ipairs(childs) do
-	  Debug("    " .. type(child))
-	end
-end
-]]
 
 function getOrCreateZoneGrp(groups, session, order)
 	-- group name and ID
@@ -878,7 +880,7 @@ function addEmptyLine(group, order)
 end
 
 --[[-------------------------------------------------------------------------------------
--- 
+-- prepare statistic groups
 ---------------------------------------------------------------------------------------]]
 function getStatisticGroups()
 	Debug("  getStatisticGroups")
@@ -994,11 +996,3 @@ end
 function Debug(msg)
 	LA:Debug(msg)
 end
-
---[[
-function Debug(msg)
-	--if LA.DEBUG then
-		LA:Print(tostring(msg))
-	--end
-end
-]]
