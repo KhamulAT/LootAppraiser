@@ -15,7 +15,7 @@ LA.METADATA = {
 
 -- GUI related local vars
 -- frames
-local START_SESSION_PROMPT, MAIN_UI 
+local START_SESSION_PROMPT, MAIN_UI, LITE_UI, LAST_NOTEWOTHYITEM_UI
 -- single elements
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_ZONE, VALUE_SESSIONDURATION, dataContainer
 local STATUSTEXT
@@ -243,6 +243,8 @@ function LA:OnEnable()
 
 	-- register chat commands
 	LA:RegisterChatCommand("la", chatCmdLootAppraiser)
+	LA:RegisterChatCommand("lal", chatCmdLootAppraiserLite)
+	LA:RegisterChatCommand("laa", chatCmdGoldAlertTresholdMonitor)
 
 	-- register event for...
 	-- ...loot window open
@@ -288,6 +290,18 @@ function initDB()
 				["left"] = 50,
 				["width"] = 400,
 			},
+			liteUI = {
+				["height"] = 32,
+				["top"] = (parentHeight+20),
+				["left"] = 50,
+				["width"] = 400,
+			},
+			lastNotewothyItemUI = {
+				["height"] = 32,
+				["top"] = (parentHeight-15),
+				["left"] = 50,
+				["width"] = 400,
+			},
 			general = {
 				["qualityFilter"] = "2",
 				["goldAlertThreshold"] = "100",
@@ -323,6 +337,8 @@ function initDB()
 				showCurrencyLooted = true,
 				showItemsLooted = true,
 				showNoteworthyItems = true,
+				enableLastNoteworthyItemUI = false,
+				enableLootAppraiserLite = false,
 			},
 			sessionData = {
 				groupBy = "datetime",
@@ -342,6 +358,17 @@ end
 
 
 --[[-------------------------------------------------------------------------------------
+-- open gold alert treshold monitor
+---------------------------------------------------------------------------------------]]
+function chatCmdGoldAlertTresholdMonitor()
+    if not isSessionRunning() then
+        StartSession(true)        
+    end
+
+    ShowLastNoteworthyItemWindow()
+end
+
+--[[-------------------------------------------------------------------------------------
 -- open loot appraiser and start a new session
 ---------------------------------------------------------------------------------------]]
 function chatCmdLootAppraiser()
@@ -350,6 +377,18 @@ function chatCmdLootAppraiser()
     end
 
     ShowMainWindow(true)
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- open loot appraiser lite and start a new session
+---------------------------------------------------------------------------------------]]
+function chatCmdLootAppraiserLite()
+    if not isSessionRunning() then
+        StartSession(false)        
+    end
+
+    ShowLiteWindow()
 end
 
 
@@ -459,7 +498,7 @@ local mapIDItemCount = {}
 function handleItemLooted(itemLink, itemID, quantity)
 	Debug("handleItemLooted itemID=" .. itemID)
 
-    local quality = select(3, GetItemInfo(itemID))
+    local quality = select(3, GetItemInfo(itemID)) or 0
 
     if quantity ~= nil then
     	totalItemLootedCounter = totalItemLootedCounter + quantity
@@ -519,6 +558,11 @@ function handleItemLooted(itemLink, itemID, quantity)
 			local formattedValue = LA:FormatTextMoney(singleItemValue) or 0
 			LA:Pour(itemLink.." x"..quantity..": "..formattedValue)
 
+			-- last noteworthy item ui
+			if LAST_NOTEWOTHYITEM_UI then
+				LAST_NOTEWOTHYITEM_UI:SetTitle("|cffffffff" .. itemLink.." x"..quantity..": "..formattedValue .. "|r")
+			end
+
 			-- toast
 			if isToastsEnabled() then
 				local name, _, _, _, _, _, _, _, _, texturePath = _G.GetItemInfo(itemID)
@@ -564,6 +608,8 @@ function handleItemLooted(itemLink, itemID, quantity)
 				currentSession["mapID"] = GetCurrentMapAreaID()
 			end
 		end
+
+		refreshUIs()
 	else
 		Debug("  item quality to low -> ignored")
     end
@@ -635,6 +681,58 @@ end
 --[[-------------------------------------------------------------------------------------
 -- GUIs
 ---------------------------------------------------------------------------------------]]
+
+
+--[[-------------------------------------------------------------------------------------
+-- the last noteworthy item ui
+---------------------------------------------------------------------------------------]]
+function ShowLastNoteworthyItemWindow()
+	Debug("ShowLastNoteworthyItemWindow")
+
+	if LAST_NOTEWOTHYITEM_UI then
+		LAST_NOTEWOTHYITEM_UI:Show()
+		return 
+	end
+
+	LAST_NOTEWOTHYITEM_UI = AceGUI:Create("LALiteWindow")
+	LAST_NOTEWOTHYITEM_UI:Hide()
+	LAST_NOTEWOTHYITEM_UI:SetStatusTable(LA.db.profile.lastNotewothyItemUI)
+	LAST_NOTEWOTHYITEM_UI:SetWidth(350)
+	LAST_NOTEWOTHYITEM_UI:SetHeight(32)
+
+	LAST_NOTEWOTHYITEM_UI:SetTitle("Gold Alert Threshold")
+
+	LAST_NOTEWOTHYITEM_UI:Show()
+end
+
+--[[-------------------------------------------------------------------------------------
+-- the lite ui
+---------------------------------------------------------------------------------------]]
+function ShowLiteWindow()
+	Debug("ShowLiteWindow")
+
+	if LITE_UI then
+		LITE_UI:Show()
+		return 
+	end
+
+	LITE_UI = AceGUI:Create("LALiteWindow")
+	LITE_UI:Hide()
+	LITE_UI:SetStatusTable(LA.db.profile.liteUI)
+	LITE_UI:SetWidth(150)
+	LITE_UI:SetHeight(32)
+	--LITE_UI:EnableResize(false)
+
+	local totalItemValue = currentSession["liv"] or 0
+	LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
+
+	LITE_UI:Show()
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- the main ui
+---------------------------------------------------------------------------------------]]
 local PaneBackdrop  = {
 	bgFile = "Interface\\PaperDollInfoFrame\\UI-GearManager-Title-Background",
 	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -643,15 +741,19 @@ local PaneBackdrop  = {
 }
 
 
---[[-------------------------------------------------------------------------------------
--- the main ui
----------------------------------------------------------------------------------------]]
 local total = 0
 function ShowMainWindow(showMainUI) 
 	Debug("ShowMainWindow")
 
 	if MAIN_UI and showMainUI then 
 		MAIN_UI:Show()
+
+		if isLootAppraiserLiteEnabled() then
+			ShowLiteWindow()
+		end
+		if isLastNoteworthyItemUIEnabled() then
+			ShowLastNoteworthyItemWindow()
+		end
 		return
 	end 
 
@@ -666,7 +768,7 @@ function ShowMainWindow(showMainUI)
 		function(event, elapsed)
 			total = total + elapsed
     		if total >= 1 then
-    			refreshMainUI()
+    			refreshUIs()
 		        total = 0
 		    end	
 		end
@@ -766,6 +868,13 @@ function ShowMainWindow(showMainUI)
 
 	if showMainUI then
 		MAIN_UI:Show()
+
+		if isLootAppraiserLiteEnabled() then
+			ShowLiteWindow()
+		end
+		if isLastNoteworthyItemUIEnabled() then
+			ShowLastNoteworthyItemWindow()
+		end
 	end
 end
 
@@ -896,8 +1005,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- refresh the main ui
 ---------------------------------------------------------------------------------------]]
-function refreshMainUI()
-	--Debug("refreshMainUI")
+function refreshUIs()
+	--Debug("refreshUIs")
 
 	-- session duration
 	if isSessionRunning() then
@@ -969,6 +1078,14 @@ function refreshMainUI()
 			currentSession["liv"] = totalItemValue
 			currentSession["end"] = time()
 			currentSession["totalItemsLooted"] = totalItemLootedCounter
+		end
+	end
+
+	-- looted item value (on lite ui)
+	if isLootAppraiserLiteEnabled() then
+		if LITE_UI then
+			local totalItemValue = currentSession["liv"] or 0
+			LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
 		end
 	end
 end
@@ -1079,9 +1196,7 @@ end
 --[[-------------------------------------------------------------------------------------
 -- starte a new session
 ---------------------------------------------------------------------------------------]]
-function StartSession(openLootAppraiser)
-	--Debug("  StartSession: openLootAppraiser=" .. tostring(openLootAppraiser))
-
+function StartSession(showMainUI)
 	startSessionPromptAlreadyAnswerd = true
 	lootAppraiserDisabled = false
 
@@ -1097,7 +1212,7 @@ function StartSession(openLootAppraiser)
 		prepareNewSession()
 
         -- show main window
-		ShowMainWindow(openLootAppraiser)
+		ShowMainWindow(showMainUI)
 
 		-- process saved loot
 		Debug("  savedLoot = " .. tostring(tablelength(savedLoot)))
@@ -1673,6 +1788,23 @@ end
 function LA:getCurrentSession()
 	return currentSession
 end
+
+function isLootAppraiserLiteEnabled()
+	if LA.db.profile.display.enableLootAppraiserLite == nil then
+		LA.db.profile.display.enableLootAppraiserLite = dbDefaults.profile.display.enableLootAppraiserLite
+	end
+
+	return LA.db.profile.display.enableLootAppraiserLite
+end
+
+function isLastNoteworthyItemUIEnabled()
+	if LA.db.profile.display.enableLastNoteworthyItemUI == nil then
+		LA.db.profile.display.enableLastNoteworthyItemUI = dbDefaults.profile.display.enableLastNoteworthyItemUI
+	end
+
+	return LA.db.profile.display.enableLastNoteworthyItemUI
+end
+
 
 --[[-------------------------------------------------------------------------------------
 -- parse currency text from loot window and covert the result to copper
