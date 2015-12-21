@@ -491,11 +491,25 @@ local options = {
 							name = "LootAppraiser is an addon which determines an item's value when looted based upon a pricing source you select. It keeps track of all gold asset value of the items in total including a quality item filter. Perfect for farming and determining gold asset value or potential gold-per-hour.\n\nThe reason Profitz developed this addon was because while proving out some gold earnings via farming, he was using spreadsheets for post-run calculations on item values and pricing models. Now, we all can just run this addon, select the price source we want and let it calculate it for us!\n\nPlease understand, this addon does NOT determine liquid gold you are guaranteed to make but rather, potential ‘asset’ values of items looted where you will have to do the work and sell it on the Auction House, trade chat, etc.\n",
 							width = "full", 
 						}, 
+						generalText15 = {
+							type = "description", 
+							order = 15, 
+							fontSize = "medium",
+							name = "EMail:",
+							width = "half", 
+						}, 
+						generalText16 = {
+							type = "description", 
+							order = 16, 
+							fontSize = "medium",
+							name = "lootappraiser@gmail.com",
+							width = "double", 
+						}, 
 						generalText20 = {
 							type = "description", 
 							order = 20, 
 							fontSize = "medium",
-							name = "Author/Designer/Developer: Profitz",
+							name = "\nAuthor/Designer/Developer: Profitz",
 							width = "full", 
 						}, 
 						generalText26 = {
