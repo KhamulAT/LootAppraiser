@@ -20,7 +20,7 @@ local START_SESSION_PROMPT, MAIN_UI, LITE_UI, LAST_NOTEWOTHYITEM_UI
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_ZONE, VALUE_SESSIONDURATION, dataContainer
 local STATUSTEXT
 local GUI_LOOTCOLLECTED, GUI_SCROLLCONTAINER
-local BTN_PAUSE, BTN_RECORD
+local BUTTON_STOPSESSION
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -144,7 +144,14 @@ function miniMapIconOnTooltipShow(tooltip)
 	tooltip:AddLine(" ") -- spacer
 
 	if isSessionRunning() then
-		local delta =  time() - currentSession["start"]
+		local offset
+		if pauseStart ~= nil then
+			offset = pauseStart -- session is paused
+		else
+			offset = time() -- session is running
+		end
+
+		local delta = offset - currentSession["start"] - sessionPause
 
 		-- don't show seconds
 		local noSeconds = false
@@ -152,7 +159,14 @@ function miniMapIconOnTooltipShow(tooltip)
 			noSeconds = true
 		end
 
-		tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
+		local text = "Session is "
+		if pauseStart ~= nil then
+			text = text .. "paused: "
+		else
+			text = text .. "running: "
+		end
+
+		tooltip:AddDoubleLine(text, SecondsToTime(delta, noSeconds, false))
 	else
 		tooltip:AddLine("Session is not running")
 	end
@@ -330,6 +344,7 @@ function initDB()
 				["addBlacklistedItems2DestroyTrash"] = false,			
 			},
 			display = {
+				lootedItemListRowCount = 5,
 				showZoneInfo = true,
 				showSessionDuration = true,
 				showLootedItemValue = true,
@@ -416,7 +431,7 @@ function onLootSlotCleared(event, slot)
 			handleCurrencyLooted(lootedCopper)
 
 		else
-			Debug("  -> " .. tostring(data["itemID"]) .. " x" .. tostring(data["quantity"]))
+			Debug("  -> " .. tostring(data["link"]) .. " x" .. tostring(data["quantity"]))
 
 			local itemLink = data["link"]
 			local quantity = data["quantity"]
@@ -560,7 +575,7 @@ function handleItemLooted(itemLink, itemID, quantity)
 
 			-- last noteworthy item ui
 			if LAST_NOTEWOTHYITEM_UI then
-				LAST_NOTEWOTHYITEM_UI:SetTitle("|cffffffff" .. itemLink.." x"..quantity..": "..formattedValue .. "|r")
+				LAST_NOTEWOTHYITEM_UI:SetTitle(itemLink.."|cffffffff x"..quantity..": "..formattedValue .. "|r")
 			end
 
 			-- toast
@@ -760,7 +775,7 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI = AceGUI:Create("Window")
 	MAIN_UI:Hide()
 	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
-	MAIN_UI:SetTitle(LA.METADATA.NAME .. " v" .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
+	MAIN_UI:SetTitle(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
 	MAIN_UI:SetWidth(400)
 	MAIN_UI:EnableResize(false)
@@ -858,12 +873,19 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:AddChild(BUTTON_NEWSESSION)
 
 	-- button stop session --
-	local BUTTON_STOPSESSION = AceGUI:Create("Button")
+	BUTTON_STOPSESSION = AceGUI:Create("Button")
 	BUTTON_STOPSESSION:SetAutoWidth(true)
-	BUTTON_STOPSESSION:SetText("Stop")
-	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		onBtnStopSessionClick()
-	end)
+	if isSessionRunning() then
+		BUTTON_STOPSESSION:SetText("Stop")
+		BUTTON_STOPSESSION:SetCallback("OnClick", function()
+			onBtnStopSessionClick()
+		end)
+	else 
+		BUTTON_STOPSESSION:SetText("Start")
+		BUTTON_STOPSESSION:SetCallback("OnClick", function()
+			onBtnStartSessionClick()
+		end)
+	end
 	MAIN_UI:AddChild(BUTTON_STOPSESSION)
 
 	if showMainUI then
@@ -903,8 +925,8 @@ function prepareDataContainer()
 	-- prepare data container with current rows
 
 	-- zone and session duration
-	local labelWidth = 179
-	local valueWidth = 186
+	local labelWidth = 199
+	local valueWidth = 166
 
 	local grp = AceGUI:Create("SimpleGroup")
 	grp:SetLayout("flow")
@@ -1026,15 +1048,15 @@ function refreshUIs()
 		end
 
 		--tooltip:AddDoubleLine("Session is running: ", SecondsToTime(delta, noSeconds, false))
-		--if pauseStart ~= nil then 
-		--	if time() % 2 == 0 then
-		--		VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-		--	else
-		--		VALUE_SESSIONDURATION:SetText(" ")
-		--	end
-		--else
+		if pauseStart ~= nil then 
+			if time() % 2 == 0 then
+				VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+			else
+				VALUE_SESSIONDURATION:SetText(" ")
+			end
+		else
 			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
-		--end
+		end
 	else
 		--tooltip:AddLine("Session is not running")
 		VALUE_SESSIONDURATION:SetText("not running")
@@ -1268,14 +1290,6 @@ function prepareNewSession()
 	pauseStart = nil
 
 	sessionIsRunning = true
-
-	-- reset buttons
-	--[[
-	if BTN_PAUSE ~= nil and BTN_RECORD ~= nil then
-		BTN_PAUSE.frame:Show()
-		BTN_RECORD.frame:Hide()
-	end
-	]]
 	-- end: prepare session (for statistics)
 end
 
@@ -1291,6 +1305,28 @@ end
 
 
 --[[------------------------------------------------------------------------
+-- 
+--------------------------------------------------------------------------]]
+function onBtnStartSessionClick()
+	Debug("onBtnStartSessionClick")
+
+	--sessionIsRunning = true
+
+	sessionPause = sessionPause + (time() - pauseStart)
+
+	pauseStart = nil
+
+	-- change start button to stop button
+	BUTTON_STOPSESSION:SetText("Stop")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		onBtnStopSessionClick()
+	end)
+
+	refreshUIs()
+end
+
+
+--[[------------------------------------------------------------------------
 -- Event handler for button 'new session'
 --------------------------------------------------------------------------]]
 function onBtnStopSessionClick()
@@ -1302,6 +1338,8 @@ function onBtnStopSessionClick()
 			Debug("  -> set session end")
 			currentSession["end"] = time()
 			currentSession["totalItemsLooted"] = totalItemLootedCounter
+
+			prepareStatisticGroups()
 		else
 			-- delete current session
 			local sessions = LA.db.global.sessions
@@ -1310,10 +1348,22 @@ function onBtnStopSessionClick()
 		end
 	end
 
+	--sessionIsRunning = false
+
+	pauseStart = time()
+
+	-- change stop button to start button
+	BUTTON_STOPSESSION:SetText("(Re)Start")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		onBtnStartSessionClick()
+	end)
+
+	refreshUIs()
+
 	-- reset all values
+	--[[
 	prepareNewSession()
 	currentSession = {}
-	sessionIsRunning = false
 
 	totalLootedCurrency = 0   	-- the total looted currency during a session
 	if VALUE_TOTALCURRENCY ~= nil then
@@ -1335,8 +1385,7 @@ function onBtnStopSessionClick()
 		GUI_LOOTCOLLECTED:ReleaseChildren()
 	end
 	lootCollectedLastEntry = nil
-
-	prepareStatisticGroups()
+	]]
 end
 
 
@@ -1352,6 +1401,8 @@ function onBtnNewSessionClick()
 			Debug("  -> set session end")
 			currentSession["end"] = time()
 			currentSession["totalItemsLooted"] = totalItemLootedCounter
+
+			prepareStatisticGroups()
 		else
 			-- delete current session
 			local sessions = LA.db.global.sessions
@@ -1384,7 +1435,17 @@ function onBtnNewSessionClick()
 	end
 	lootCollectedLastEntry = nil
 
-	prepareStatisticGroups()
+	-- set stop button
+	BUTTON_STOPSESSION:SetText("Stop")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		onBtnStopSessionClick()
+	end)
+
+	refreshUIs()
+
+	if LAST_NOTEWOTHYITEM_UI then
+		LAST_NOTEWOTHYITEM_UI:SetTitle("Gold Alert Threshold")
+	end
 end
 
 
@@ -1586,6 +1647,7 @@ function addItem2LootCollectedList(itemID, link, quantity, marketValue, notewort
 	local LABEL = AceGUI:Create("InteractiveLabel")
 	LABEL.frame:Hide()
 	LABEL:SetText(preparedText)
+	LABEL.label:SetJustifyH("LEFT")
 	LABEL:SetWidth(350)
 	--LABEL:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	LABEL:SetCallback("OnEnter", 
@@ -1635,6 +1697,7 @@ end
 -- add a blank line to the given frame
 function addSpacer(frame)
 	local SPACER = AceGUI:Create("Label")
+	SPACER.label:SetJustifyH("LEFT")
 	SPACER:SetText("   ")
 	SPACER:SetWidth(350)
 	--SPACER:SetFont("Fonts\\FRIZQT__.TTF", 6)

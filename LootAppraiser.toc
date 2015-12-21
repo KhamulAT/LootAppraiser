@@ -2,7 +2,7 @@
 ## Title: LootAppraiser
 ## Notes: An addon which keeps track of looted items and relative AH value.
 ## Author: Profitz, Juijang
-## Version: 100.0 BETA
+## Version: 2016.v1
 ## RequiredDeps: TradeskillMaster
 ## SavedVariables: LootAppraiserDB
 ## X-Embeds: Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibExtraTip, LibParse, LibCompress, LibGraph-2.0
