@@ -469,7 +469,7 @@ local options = {
 							type = "group",
 							order = 40,
 							name = "Tooltip",
-							hidden = false,
+							hidden = true,
 							inline = true,
 							args = {
 							},
