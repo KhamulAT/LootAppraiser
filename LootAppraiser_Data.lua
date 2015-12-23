@@ -55,13 +55,13 @@ function dataobj:OnTooltipShow()
 		local lootedItemValue = currentSession["liv"] or 0
 		self:AddDoubleLine("|cFFFFFFFFLooted Item Value|r", "|cFFFFFFFF" .. tostring(LA:FormatTextMoney(lootedItemValue)) .. "|r")
 
-		local currencyLooted = totalLootedCurrency or 0
+		local currencyLooted = LA:getTotalLootedCurrency() or 0
 		self:AddDoubleLine("|cFFFFFFFFCurrency Looted|r", "|cFFFFFFFF" ..  tostring(LA:FormatTextMoney(currencyLooted)) .. "|r")
 
 		local itemsLooted = lootedItemCounter or 0
 		self:AddDoubleLine("|cFFFFFFFFItems Looted|r", "|cFFFFFFFF" ..  tostring(itemsLooted) .. "|r")
 
-		local noteworthyItemsLooted = noteworthyItemCounter or 0
+		local noteworthyItemsLooted = LA:getNoteworthyItemCounter() or 0
 		self:AddDoubleLine("|cFFFFFFFFNoteworthy Items|r", "|cFFFFFFFF" ..  tostring(noteworthyItemsLooted) .. "|r")
 	else
 		self:AddLine("Session not running")

@@ -38,6 +38,7 @@ local noteworthyItemCounter = 0		-- counter for noteworthy items
 local totalItemLootedCounter = 0	-- counter for looted items (before filtering)
 
 local savedLoot = {}
+local lootCollectedLastEntry = nil  -- remember last element from loot collected list to add elements before this (on top of the list)
 
 local dbDefaults
 
@@ -118,32 +119,32 @@ local _laLDB = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
 	icon = "Interface\\Icons\\Ability_Racial_PackHobgoblin",
 	OnClick = function(self, button, down)
 		if button == "LeftButton" then
-			if not isSessionRunning() then
-		        StartSession(true)        
+			if not LA:isSessionRunning() then
+		        LA:StartSession(true)        
 		    end
 
-		    ShowMainWindow(true)
+		    LA:ShowMainWindow(true)
 		elseif button == "RightButton" then
-			DEFAULT_CHAT_FRAME:AddMessage("Open LootAppraiser Config")
+			LA:Print("Open LootAppraiser Configuration")
 
 			InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
 			InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
 		end
 	end,
 	OnTooltipShow = function (tooltip)
-		miniMapIconOnTooltipShow(tooltip)
+		LA:miniMapIconOnTooltipShow(tooltip)
 	end
 })
 local _icon = LibStub("LibDBIcon-1.0")
 
-function miniMapIconOnTooltipShow(tooltip)
+function LA:miniMapIconOnTooltipShow(tooltip)
 	tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
 	tooltip:AddLine("|cFFFFFFCCLeft-Click|r to open the main window")
 	tooltip:AddLine("|cFFFFFFCCRight-Click|r to open options window")
 	tooltip:AddLine("|cFFFFFFCCDrag|r to move this button")
 	tooltip:AddLine(" ") -- spacer
 
-	if isSessionRunning() then
+	if LA:isSessionRunning() then
 		local offset
 		if pauseStart ~= nil then
 			offset = pauseStart -- session is paused
@@ -183,11 +184,11 @@ local function OnTooltipSetItem(tooltip, ...)
 
 		local itemID = LA:GetItemID(link)
 		
-		--Debug("  itemId=" .. itemID)
+		--LA:Debug("  itemId=" .. itemID)
 
 		local data = LA.db.global.drops[itemID]
 		if data then
-			--Debug("  data found for itemID=" .. itemID)
+			--LA:Debug("  data found for itemID=" .. itemID)
 			tooltip:AddLine("|cFFFFFF00" .. LA.METADATA.NAME .. " - Drop Info|r") -- headline
 			for mapID, count in pairs(data) do
 				local mapName = GetMapNameByID(mapID)
@@ -199,7 +200,7 @@ local function OnTooltipSetItem(tooltip, ...)
 				end
 			end
 		else
-			--Debug("  no data found for itemID=" .. itemID)
+			--LA:Debug("  no data found for itemID=" .. itemID)
 		end
 
 		-- calc drop chance
@@ -215,7 +216,7 @@ local function OnTooltipSetItem(tooltip, ...)
 		end
 
 		if itemCount > 0 then
-			local dropChance = round((100 / fullItemCount * itemCount), 2)
+			local dropChance = LA:round((100 / fullItemCount * itemCount), 2)
 
 			tooltip:AddDoubleLine("|cFFFFFF00Dropchance:|r", "|cFFFFFFFF" .. tostring(dropChance) .. "%|r")
 		end
@@ -237,9 +238,9 @@ end
 -- AceAddon-3.0 standard methods
 ---------------------------------------------------------------------------------------]]
 function LA:OnInitialize()
-	Debug("LA:OnInitialize()")
+	LA:Debug("LA:OnInitialize()")
 
-	initDB()
+	LA:initDB()
 
 	LA:SetSinkStorage(LA.db.profile.notification.sink)
 
@@ -256,21 +257,21 @@ function LA:OnEnable()
 	LA:Print("LootAppraiser ENABLED.")
 
 	-- register chat commands
-	LA:RegisterChatCommand("la", chatCmdLootAppraiser)
-	LA:RegisterChatCommand("lal", chatCmdLootAppraiserLite)
-	LA:RegisterChatCommand("laa", chatCmdGoldAlertTresholdMonitor)
+	LA:RegisterChatCommand("la", LA.chatCmdLootAppraiser)
+	LA:RegisterChatCommand("lal", LA.chatCmdLootAppraiserLite)
+	LA:RegisterChatCommand("laa", LA.chatCmdGoldAlertTresholdMonitor)
 
 	-- register event for...
 	-- ...loot window open
-	LA:RegisterEvent("LOOT_OPENED", onLootOpened)
-	LA:RegisterEvent("LOOT_SLOT_CLEARED", onLootSlotCleared)
+	LA:RegisterEvent("LOOT_OPENED", LA.onLootOpened)
+	LA:RegisterEvent("LOOT_SLOT_CLEARED", LA.onLootSlotCleared)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
 	local realm = GetRealmName()
 
-	if (nameString == "Netatik" or nameString == "Cibane") and realm == "Antonidas" then
-		Debug("DEBUG enabled")
+	if (nameString == "xNetatik" or nameString == "Cibane") and realm == "Antonidas" then
+		LA:Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
 end
@@ -284,14 +285,15 @@ end
 --[[-------------------------------------------------------------------------------------
 -- init lootappriaser db
 ---------------------------------------------------------------------------------------]]
-function initDB()
-	Debug("initDB()")
+function LA:initDB()
+	LA:Debug("LA:initDB()")
 
 	local parentWidth = UIParent:GetWidth()
 	local parentHeight = UIParent:GetHeight()
 
 	dbDefaults = {
 		profile = {
+			enableDebugOutput = false,
 			minimapIcon = {
 				-- minimap icon position and visibility
 				hide = false,
@@ -375,63 +377,66 @@ end
 --[[-------------------------------------------------------------------------------------
 -- open gold alert treshold monitor
 ---------------------------------------------------------------------------------------]]
-function chatCmdGoldAlertTresholdMonitor()
-    if not isSessionRunning() then
-        StartSession(true)        
+function LA.chatCmdGoldAlertTresholdMonitor()
+    if not LA:isSessionRunning() then
+        LA:StartSession(true)        
     end
 
-    ShowLastNoteworthyItemWindow()
+    LA:ShowLastNoteworthyItemWindow()
 end
 
 --[[-------------------------------------------------------------------------------------
 -- open loot appraiser and start a new session
 ---------------------------------------------------------------------------------------]]
-function chatCmdLootAppraiser()
-    if not isSessionRunning() then
-        StartSession(true)        
+function LA.chatCmdLootAppraiser()
+    if not LA:isSessionRunning() then
+        LA:StartSession(true)        
     end
 
-    ShowMainWindow(true)
+    LA:ShowMainWindow(true)
 end
 
 
 --[[-------------------------------------------------------------------------------------
 -- open loot appraiser lite and start a new session
 ---------------------------------------------------------------------------------------]]
-function chatCmdLootAppraiserLite()
-    if not isSessionRunning() then
-        StartSession(false)        
+function LA.chatCmdLootAppraiserLite()
+    if not LA:isSessionRunning() then
+        LA:StartSession(false)        
     end
 
-    ShowLiteWindow()
+    LA:ShowLiteWindow()
 end
 
 
 --[[-------------------------------------------------------------------------------------
 -- event handler
 ---------------------------------------------------------------------------------------]]
-function onLootSlotCleared(event, slot)
+function LA.onLootSlotCleared(event, slot)
 	-- is LootAppraiser disabled?
 	if lootAppraiserDisabled then return end
-	if not isSessionRunning() then return end
+	if not LA:isSessionRunning() then return end
 
-	Debug("-> loot slot cleared: " .. tostring(slot))
+	LA:Debug("-> loot slot cleared: " .. tostring(slot))
+		LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
 
 	local data = savedLoot[tostring(slot)]
-	Debug("-> " .. tostring(data))
+	LA:Debug("-> " .. tostring(data))
 	if data ~= nil then
 
 		if data["currency"] then
-			Debug("  -> " .. tostring(data["currency"]) .. " copper")
+			LA:Debug("  -> " .. tostring(data["currency"]) .. " copper")
+			LA:D("event:OnLootSlotCleared; type=currency" )
 
 			local lootedCopper = data["currency"]
 
 			savedLoot[tostring(slot)] = nil
 
-			handleCurrencyLooted(lootedCopper)
+			LA:handleCurrencyLooted(lootedCopper)
 
 		else
-			Debug("  -> " .. tostring(data["link"]) .. " x" .. tostring(data["quantity"]))
+			LA:Debug("  -> " .. tostring(data["link"]) .. " x" .. tostring(data["quantity"]))
+			LA:D("event:OnLootSlotCleared; type=item" )
 
 			local itemLink = data["link"]
 			local quantity = data["quantity"]
@@ -439,33 +444,33 @@ function onLootSlotCleared(event, slot)
 
 			savedLoot[tostring(slot)] = nil
 
-			handleItemLooted(itemLink, itemID, quantity)
+			LA:handleItemLooted(itemLink, itemID, quantity)
 
 		end
 		
-		Debug("loot slot cleared with " .. tablelength(savedLoot) .. " items remaining")
+		LA:Debug("loot slot cleared with " .. LA:tablelength(savedLoot) .. " items remaining")
 
 	end
 end
 
 
-function onLootOpened(event, ...)
+function LA.onLootOpened(event, ...)
 	-- is LootAppraiser disabled?
 	if lootAppraiserDisabled then return end
 
 	-- is a loot appraiser session running?
-	if not isSessionRunning() then
+	if not LA:isSessionRunning() then
 		-- no session -> should we ask for session start?
-		if not startSessionPromptAlreadyAnswerd and not isSurpressSessionStartDialog() then
+		if not startSessionPromptAlreadyAnswerd and not LA:isSurpressSessionStartDialog() then
 			-- save current loot
-			saveCurrentLoot()
+			LA:saveCurrentLoot()
 
 			-- and open dialog
-			ShowStartSessionDialog()
+			LA:ShowStartSessionDialog()
 		end
 	else
 		-- Cycle through each looted item --
-		Debug("loot open started")
+		LA:Debug("loot open started")
 		savedLoot = {}
 
 		for i = 1, GetNumLootItems() do
@@ -490,7 +495,7 @@ function onLootOpened(event, ...)
 				-- currency looted
 
 				local lootedCoin = select(2, GetLootSlotInfo(i))
-				local lootedCopper = getLootedCopperFromText(lootedCoin)
+				local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
 
 				local data = {}
 				data["currency"] = lootedCopper
@@ -501,7 +506,8 @@ function onLootOpened(event, ...)
 			end
 		end
 
-		Debug("loot opened finished with " .. tablelength(savedLoot) .. " items")
+		LA:Debug("loot opened finished with " .. LA:tablelength(savedLoot) .. " items")
+		LA:D("event:OnLootOpened finished; recorded " .. LA:tablelength(savedLoot) .. " items")
 	end
 end
 
@@ -510,8 +516,9 @@ end
 -- the main logic for item processing
 ---------------------------------------------------------------------------------------]]
 local mapIDItemCount = {}
-function handleItemLooted(itemLink, itemID, quantity)
-	Debug("handleItemLooted itemID=" .. itemID)
+function LA:handleItemLooted(itemLink, itemID, quantity)
+	LA:Debug("handleItemLooted itemID=" .. itemID)
+	LA:D("  " .. tostring(itemID) .. ": handle item: " .. itemLink .. " x" .. tostring(quantity))
 
     local quality = select(3, GetItemInfo(itemID)) or 0
 
@@ -520,66 +527,79 @@ function handleItemLooted(itemLink, itemID, quantity)
     end
 
     -- overwrite link if we only want base items					
-	if getIgnoreRandomEnchants() then
+	if LA:getIgnoreRandomEnchants() then
 		itemLink = select(2, GetItemInfo(itemID)) -- we use the link from GetItemInfo(...) because GetLootSlotLink(...) returns not the base item
 	end
 
-    local singleItemValue = LA:GetItemValue(itemID, getPriceSource()) or 0 -- single item
+    local singleItemValue = LA:GetItemValue(itemID, LA:getPriceSource()) or 0 -- single item
+		
+	LA:D("  " .. tostring(itemID) .. ": price source (before checks): " .. tostring(LA:getPriceSource()))
+	LA:D("  " .. tostring(itemID) .. ": single item value (before checks): " .. tostring(singleItemValue))
 
     -- blacklisted items
-    if ITEM_FILTER_BLACKLIST[tostring(itemID)] then
+    if LA:isItemBlacklisted(itemID) then
+    --if ITEM_FILTER_BLACKLIST[tostring(itemID)] then
 
-		Debug("  item filter blacklist -> ignored")
+		LA:Debug("  item filter blacklist -> ignored")
+		LA:D("  " .. tostring(itemID) .. ": blacklisted -> ignore")
 		return
 
-    elseif quality >= getQualityFilter() then
+    elseif quality >= LA:getQualityFilter() then
+		LA:D("  " .. tostring(itemID) .. ": item quality (" .. tostring(quality) .. ") >= filter (" .. LA:getQualityFilter() .. ")")
 
     	-- special handling for poor quality items
     	if quality == 0 then
-    		Debug("  poor quality -> VendorSell")
+    		LA:Debug("  poor quality -> VendorSell")
+			LA:D("  " .. tostring(itemID) .. ": poor quality -> price source 'VendorSell'")
 
 			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
 		end
 
 		-- special handling for item filter vendor sell
 		if ITEM_FILTER_VENDOR[tostring(itemID)] then
-			Debug("  item filter vendor -> VendorSell")
+			LA:Debug("  item filter vendor -> VendorSell")
+			LA:D("  " .. tostring(itemID) .. ": item filtered by vendor list -> price source 'VendorSell'")
 
 			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
 		end
 
 		-- special handling for soulbound items
 		if singleItemValue == 0 and quality >= 1 then
-			Debug("  item value = 0 -> soulbound item")
+			LA:Debug("  item value = 0 -> soulbound item")
+			LA:D("  " .. tostring(itemID) .. ": soulbound item -> price source 'VendorSell'")
 
 			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
 		end
+		
+		LA:D("  " .. tostring(itemID) .. ": single item value (after checks): " .. tostring(singleItemValue))
 
     	local itemValue = singleItemValue * quantity
 
-		--handleCurrencyLooted(itemValue)
-		incLootedItemCounter(quantity)											-- increase looted item counter
-		addItemValue2LootedItemValue(itemValue) 								-- add item value
-		addItem2LootCollectedList(itemID, itemLink, quantity, itemValue, false) -- add item
+		LA:D("  " .. tostring(itemID) .. ": total item(s) value: " .. tostring(itemValue))
+
+		LA:incLootedItemCounter(quantity)											-- increase looted item counter
+		LA:addItemValue2LootedItemValue(itemValue) 									-- add item value
+		LA:addItem2LootCollectedList(itemID, itemLink, quantity, itemValue, false)	-- add item
 
 		-- gold alert treshold
 		local goldValue = floor(singleItemValue/10000)	
-		if goldValue >= getGoldAlertThreshold() then
+		if goldValue >= LA:getGoldAlertThreshold() then
+			LA:D("  " .. tostring(itemID) .. ": gold value (" .. tostring(goldValue) .. ") >= gold alert threshold (" .. LA:getGoldAlertThreshold() .. ")")
 
 			-- inc noteworthy items counter
-			incNoteworthyItemCounter(quantity)
+			LA:incNoteworthyItemCounter(quantity)
 
 			-- print to configured output 'channel'
 			local formattedValue = LA:FormatTextMoney(singleItemValue) or 0
-			LA:Pour(itemLink.." x"..quantity..": "..formattedValue)
+			LA:Pour(itemLink .. " x" .. quantity .. ": " .. formattedValue)
 
 			-- last noteworthy item ui
 			if LAST_NOTEWOTHYITEM_UI then
-				LAST_NOTEWOTHYITEM_UI:SetTitle(itemLink.."|cffffffff x"..quantity..": "..formattedValue .. "|r")
+				LAST_NOTEWOTHYITEM_UI:SetTitle(itemLink .. "|cffffffff x" .. quantity .. ": " .. formattedValue .. "|r")
 			end
 
 			-- toast
-			if isToastsEnabled() then
+			if LA:isToastsEnabled() then
 				local name, _, _, _, _, _, _, _, _, texturePath = _G.GetItemInfo(itemID)
 				LibToast:Spawn(LootAppraiser, name, texturePath, quality, quantity, formattedValue)
 			end
@@ -609,7 +629,7 @@ function handleItemLooted(itemLink, itemID, quantity)
 			itemDrops[GetCurrentMapAreaID()] = mapCounter
 
 			-- play sound (if enabled)
-			if isPlaySoundEnabled() then
+			if LA:isPlaySoundEnabled() then
 				--PlaySound("AuctionWindowOpen", "master");
 				local soundName = LA.db.profile.notification.soundName or "None"
 				PlaySoundFile(LSM:Fetch("sound", soundName))
@@ -617,29 +637,33 @@ function handleItemLooted(itemLink, itemID, quantity)
 
 			-- check current mapID with session mapID
 			if currentSession["mapID"] ~= GetCurrentMapAreaID() then
-				Debug("  current vs. session mapID: " .. GetCurrentMapAreaID() .. " vs. " .. currentSession["mapID"])
+				LA:Debug("  current vs. session mapID: " .. GetCurrentMapAreaID() .. " vs. " .. currentSession["mapID"])
 
 				-- quick fix: if we loot a noteworthy item we change the map id
 				currentSession["mapID"] = GetCurrentMapAreaID()
 			end
+		else
+			LA:D("  " .. tostring(itemID) .. ": gold value (" .. tostring(goldValue) .. ") < gold alert threshold (" .. LA:getGoldAlertThreshold() .. ") -> no ding")
 		end
 
-		refreshUIs()
+		LA:refreshUIs()
 	else
-		Debug("  item quality to low -> ignored")
+		LA:Debug("  item quality to low -> ignored")
+		LA:D("  " .. tostring(itemID) .. ": item quality (" .. tostring(quality) .. ") < filter (" .. LA:getQualityFilter() .. ") -> ignore item")
     end
 end
 
 --[[-------------------------------------------------------------------------------------
 -- handle looted currency
 ---------------------------------------------------------------------------------------]]
-function handleCurrencyLooted(lootedCopper)
+function LA:handleCurrencyLooted(lootedCopper)
 	-- add to total looted currency 
 	totalLootedCurrency = totalLootedCurrency + lootedCopper 
+	LA:D("  handle currency: add " .. tostring(lootedCopper) .. " copper -> new total: " .. tostring(totalLootedCurrency))
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		if isDisplayEnabled("showCurrencyLooted") then
+		if LA:isDisplayEnabled("showCurrencyLooted") then
 			-- format the total looted currency and add to main ui
 			local formattedValue = LA:FormatTextMoney(totalLootedCurrency) or 0
 			VALUE_TOTALCURRENCY:SetText(formattedValue)
@@ -651,8 +675,8 @@ end
 -- save the current loot during 'start session?' dialog so we miss no loot if we start
 -- a new session
 ---------------------------------------------------------------------------------------]]
-function saveCurrentLoot()
-	if not tablelength(savedLoot) == 0 then Debug("savedLoot is not empty...") end
+function LA:saveCurrentLoot()
+	if not LA:tablelength(savedLoot) == 0 then LA:Debug("savedLoot is not empty...") end
 
 	savedLoot = {}
 
@@ -661,7 +685,7 @@ function saveCurrentLoot()
 
 		if slotType == 1 then
 			-- item looted
-			Debug("item looted (save)")
+			LA:Debug("item looted (save)")
 				
 			-- Get Information about Item Looted --
 			local itemLink = GetLootSlotLink(i)
@@ -669,27 +693,31 @@ function saveCurrentLoot()
 
 			local quantity = select(3, GetLootSlotInfo(i))
 
-			Debug("  item = " .. tostring(itemID))
+			LA:Debug("  item = " .. tostring(itemID))
 
 			local data = {}
 			data["link"] = itemLink
 			data["quantity"] = quantity
+			data["itemID"] = itemID
 
-			savedLoot[itemID] = data
+			savedLoot[tostring(i)] = data
 
 		elseif slotType == 2 then
 			-- currency looted
-			Debug("currency looted (save)")
+			LA:Debug("currency looted (save)")
 
 			local lootedCoin = select(2, GetLootSlotInfo(i))
-			local lootedCopper = getLootedCopperFromText(lootedCoin)
+			local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
 
-			Debug("  lootedCopper = " .. tostring(lootedCopper))
+			LA:Debug("  lootedCopper = " .. tostring(lootedCopper))
 
-			savedLoot["currency"] = lootedCopper
+			local data = {}
+			data["currency"] = lootedCopper
+
+			savedLoot[tostring(i)] = data
 		end
 
-		Debug("  savedLoot = " .. tostring(tablelength(savedLoot)))
+		LA:Debug("  savedLoot = " .. tostring(LA:tablelength(savedLoot)))
 	end
 end
 
@@ -701,8 +729,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- the last noteworthy item ui
 ---------------------------------------------------------------------------------------]]
-function ShowLastNoteworthyItemWindow()
-	Debug("ShowLastNoteworthyItemWindow")
+function LA:ShowLastNoteworthyItemWindow()
+	LA:Debug("ShowLastNoteworthyItemWindow")
 
 	if LAST_NOTEWOTHYITEM_UI then
 		LAST_NOTEWOTHYITEM_UI:Show()
@@ -723,8 +751,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- the lite ui
 ---------------------------------------------------------------------------------------]]
-function ShowLiteWindow()
-	Debug("ShowLiteWindow")
+function LA:ShowLiteWindow()
+	LA:Debug("ShowLiteWindow")
 
 	if LITE_UI then
 		LITE_UI:Show()
@@ -757,17 +785,17 @@ local PaneBackdrop  = {
 
 
 local total = 0
-function ShowMainWindow(showMainUI) 
-	Debug("ShowMainWindow")
+function LA:ShowMainWindow(showMainUI) 
+	LA:Debug("ShowMainWindow")
 
 	if MAIN_UI and showMainUI then 
 		MAIN_UI:Show()
 
-		if isLootAppraiserLiteEnabled() then
-			ShowLiteWindow()
+		if LA:isLootAppraiserLiteEnabled() then
+			LA:ShowLiteWindow()
 		end
-		if isLastNoteworthyItemUIEnabled() then
-			ShowLastNoteworthyItemWindow()
+		if LA:isLastNoteworthyItemUIEnabled() then
+			LA:ShowLastNoteworthyItemWindow()
 		end
 		return
 	end 
@@ -783,14 +811,14 @@ function ShowMainWindow(showMainUI)
 		function(event, elapsed)
 			total = total + elapsed
     		if total >= 1 then
-    			refreshUIs()
+    			LA:refreshUIs()
 		        total = 0
 		    end	
 		end
 	)
 	MAIN_UI:SetCallback("OnClose",
 		function()
-			Debug("Session ended")
+			LA:Debug("Session ended")
 		end
 	)
 
@@ -808,7 +836,7 @@ function ShowMainWindow(showMainUI)
 	STATUSTEXT:SetJustifyH("LEFT")
 	STATUSTEXT:SetText("")
 
- 	refreshStatusText()
+ 	LA:refreshStatusText()
  	-- START: statustext
 
 	-- loot collected list --
@@ -840,8 +868,8 @@ function ShowMainWindow(showMainUI)
 	MAIN_UI:AddChild(dataContainer)
 
 	-- data rows
-	prepareDataContainer()
-	addSpacer(MAIN_UI)
+	LA:prepareDataContainer()
+	LA:addSpacer(MAIN_UI)
 
 	-- button sell trash --
 	local BUTTON_SELLTRASH = AceGUI:Create("Button")
@@ -849,7 +877,7 @@ function ShowMainWindow(showMainUI)
 	BUTTON_SELLTRASH:SetText("Sell Trash")
 	BUTTON_SELLTRASH:SetCallback("OnClick", 
 		function()
-			onBtnSellTrashClick()
+			LA:onBtnSellTrashClick()
 		end
 	)
 	MAIN_UI:AddChild(BUTTON_SELLTRASH)
@@ -859,7 +887,7 @@ function ShowMainWindow(showMainUI)
 	BUTTON_DESTROYTRASH:SetAutoWidth(true)
 	BUTTON_DESTROYTRASH:SetText("Destroy Trash")
 	BUTTON_DESTROYTRASH:SetCallback("OnClick", function()
-		onBtnDestroyTrashClick()
+		LA:onBtnDestroyTrashClick()
 	end)
 	MAIN_UI:AddChild(BUTTON_DESTROYTRASH)
 
@@ -868,22 +896,22 @@ function ShowMainWindow(showMainUI)
 	BUTTON_NEWSESSION:SetAutoWidth(true)
 	BUTTON_NEWSESSION:SetText("New Session")
 	BUTTON_NEWSESSION:SetCallback("OnClick", function()
-		onBtnNewSessionClick()
+		LA:onBtnNewSessionClick()
 	end)
 	MAIN_UI:AddChild(BUTTON_NEWSESSION)
 
 	-- button stop session --
 	BUTTON_STOPSESSION = AceGUI:Create("Button")
 	BUTTON_STOPSESSION:SetAutoWidth(true)
-	if isSessionRunning() then
+	if LA:isSessionRunning() then
 		BUTTON_STOPSESSION:SetText("Stop")
 		BUTTON_STOPSESSION:SetCallback("OnClick", function()
-			onBtnStopSessionClick()
+			LA:onBtnStopSessionClick()
 		end)
 	else 
 		BUTTON_STOPSESSION:SetText("Start")
 		BUTTON_STOPSESSION:SetCallback("OnClick", function()
-			onBtnStartSessionClick()
+			LA:onBtnStartSessionClick()
 		end)
 	end
 	MAIN_UI:AddChild(BUTTON_STOPSESSION)
@@ -891,21 +919,22 @@ function ShowMainWindow(showMainUI)
 	if showMainUI then
 		MAIN_UI:Show()
 
-		if isLootAppraiserLiteEnabled() then
-			ShowLiteWindow()
+		if LA:isLootAppraiserLiteEnabled() then
+			LA:ShowLiteWindow()
 		end
-		if isLastNoteworthyItemUIEnabled() then
-			ShowLastNoteworthyItemWindow()
+		if LA:isLastNoteworthyItemUIEnabled() then
+			LA:ShowLastNoteworthyItemWindow()
 		end
 	end
+		LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
 end
 
 
 --[[-------------------------------------------------------------------------------------
 -- prepare the data container with the current configuration
 ---------------------------------------------------------------------------------------]]
-function prepareDataContainer()
-	Debug("prepareDataContainer")
+function LA:prepareDataContainer()
+	LA:Debug("prepareDataContainer")
 
 	if currentSession == nil then return end
 
@@ -952,32 +981,24 @@ function prepareDataContainer()
 	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
 	grp:AddChild(VALUE_SESSIONDURATION)
 
-	-- ...session duration
-	--VALUE_SESSIONDURATION = defineRowForFrame(dataContainer, "showSessionDuration", "Session:", "not running")
-	--refreshSessionDuration()
-
-	-- ...zone info
-	--VALUE_ZONE = defineRowForFrame(dataContainer, "showZoneInfo", "Zone:", " ")
-	--refreshZoneInfo()
-
 	-- ...looted item value (with liv/h)
 	local totalItemValue = currentSession["liv"] or 0
 	local livValue = LA:FormatTextMoney(totalItemValue)
-	if isDisplayEnabled("showLootedItemValuePerHour") then
+	if LA:isDisplayEnabled("showLootedItemValuePerHour") then
 		livValue = livValue .. " (0|cffffd100g|r/h)"
 	end
 
-	VALUE_LOOTEDITEMVALUE = defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
+	VALUE_LOOTEDITEMVALUE = LA:defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
 
 	-- ...looted currency
 	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
-	VALUE_TOTALCURRENCY = defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
+	VALUE_TOTALCURRENCY = LA:defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
 
 	-- ...looted item counter
-	VALUE_LOOTEDITEMCOUNTER = defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
+	VALUE_LOOTEDITEMCOUNTER = LA:defineRowForFrame(dataContainer, "showItemsLooted", "Items Looted:", lootedItemCounter)
 
 	-- ...noteworthy item counter
-	VALUE_NOTEWORTHYITEMCOUNTER = defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
+	VALUE_NOTEWORTHYITEMCOUNTER = LA:defineRowForFrame(dataContainer, "showNoteworthyItems", "Noteworthy Items:", noteworthyItemCounter)
 
 	-- and re-layout
 	MAIN_UI:DoLayout()
@@ -988,11 +1009,11 @@ end
 --[[-------------------------------------------------------------------------------------
 -- add a row with label and value to the frame
 ---------------------------------------------------------------------------------------]]
-function defineRowForFrame(frame, id, name, value)
-	Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
+function LA:defineRowForFrame(frame, id, name, value)
+	LA:Debug("  defineRowForFrame: id=" .. id .. ", name=" .. name .. ", value=" .. value)
 
-	if not isDisplayEnabled(id) or frame == nil then 
-		Debug("  -> not visible")
+	if not LA:isDisplayEnabled(id) or frame == nil then 
+		LA:Debug("  -> not visible")
 		return 
 	end
 
@@ -1027,11 +1048,11 @@ end
 --[[-------------------------------------------------------------------------------------
 -- refresh the main ui
 ---------------------------------------------------------------------------------------]]
-function refreshUIs()
-	--Debug("refreshUIs")
+function LA:refreshUIs()
+	--LA:Debug("refreshUIs")
 
 	-- session duration
-	if isSessionRunning() then
+	if LA:isSessionRunning() then
 		local offset
 		if pauseStart ~= nil then
 			offset = pauseStart -- session is paused
@@ -1085,11 +1106,11 @@ function refreshUIs()
 	end
 
 	-- looted item value
-	if isDisplayEnabled("showLootedItemValuePerHour") and isSessionRunning() then
+	if LA:isDisplayEnabled("showLootedItemValuePerHour") and LA:isSessionRunning() then
 		local totalItemValue = currentSession["liv"] or 0
-		if isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
+		if LA:isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
 			local livValue = LA:FormatTextMoney(totalItemValue)
-			livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
+			livValue = livValue .. " (" .. LA:calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 
 			-- add to main ui
 			VALUE_LOOTEDITEMVALUE:SetText(livValue)
@@ -1104,7 +1125,7 @@ function refreshUIs()
 	end
 
 	-- looted item value (on lite ui)
-	if isLootAppraiserLiteEnabled() then
+	if LA:isLootAppraiserLiteEnabled() then
 		if LITE_UI then
 			local totalItemValue = currentSession["liv"] or 0
 			LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
@@ -1114,7 +1135,7 @@ end
 
 
 -- 'start session' dialog --
-function ShowStartSessionDialog() 
+function LA:ShowStartSessionDialog() 
 	if START_SESSION_PROMPT then return end -- gui is already open
 
 	local openLootAppraiser = true
@@ -1141,7 +1162,7 @@ function ShowStartSessionDialog()
 	btnYes:SetText("Yes" .. " ")
 	btnYes:SetCallback("OnClick", 
 		function()
-			StartSession(openLootAppraiser)
+			LA:StartSession(openLootAppraiser)
 
             START_SESSION_PROMPT:Release()
             START_SESSION_PROMPT = nil
@@ -1156,7 +1177,7 @@ function ShowStartSessionDialog()
 	btnNo:SetText("No" .. " ")
 	btnNo:SetCallback("OnClick", 
 		function()
-			DisableLootAppraiser()
+			LA.DisableLootAppraiser()
 
             START_SESSION_PROMPT:Release()
             START_SESSION_PROMPT = nil
@@ -1170,8 +1191,8 @@ function ShowStartSessionDialog()
 	checkboxOpenWindow:SetLabel(" " .. "Open LootAppraiser window")
 	checkboxOpenWindow:SetCallback("OnValueChanged",
 		function(value)
-			--Debug("  OnValueChanged: value=" .. tostring(value))
-			--print_r(value)
+			--LA:Debug("  OnValueChanged: value=" .. tostring(value))
+			--LA:print_r(value)
 			openLootAppraiser = value.checked
 		end
 	)
@@ -1181,7 +1202,7 @@ function ShowStartSessionDialog()
 	START_SESSION_PROMPT.statustext:Hide()
 end
 
-function print_r ( t )  
+function LA:print_r ( t )  
     local print_r_cache={}
     local function sub_print_r(t,indent)
         if (print_r_cache[tostring(t)]) then
@@ -1218,39 +1239,41 @@ end
 --[[-------------------------------------------------------------------------------------
 -- starte a new session
 ---------------------------------------------------------------------------------------]]
-function StartSession(showMainUI)
+function LA:StartSession(showMainUI)
 	startSessionPromptAlreadyAnswerd = true
 	lootAppraiserDisabled = false
 
-	if isSessionRunning() then
+	if LA:isSessionRunning() then
 		LA:Print("LootAppraiser is already running!")
 	else
 		LA:Print("Start Session")
-		Debug("  mapID=" .. GetCurrentMapAreaID() .. " (" .. GetMapNameByID(GetCurrentMapAreaID()) .. ")")
-		--printSessions() -- TODO remove
+		LA:Debug("  mapID=" .. GetCurrentMapAreaID() .. " (" .. GetMapNameByID(GetCurrentMapAreaID()) .. ")")
+		--LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
+		--LA:printSessions() -- TODO remove
 
 		sessionIsRunning = true
 
-		prepareNewSession()
+		LA:prepareNewSession()
 
         -- show main window
-		ShowMainWindow(showMainUI)
+		LA:ShowMainWindow(showMainUI)
 
 		-- process saved loot
-		Debug("  savedLoot = " .. tostring(tablelength(savedLoot)))
-		Debug("  process saved loot")
-		for k,v in pairs(savedLoot) do
-			if k == "currency" then
+		LA:Debug("  savedLoot = " .. tostring(LA:tablelength(savedLoot)))
+		LA:Debug("  process saved loot")
+		for _, data in pairs(savedLoot) do
+			if data["currency"] ~= nil then
 				-- currency
-				handleCurrencyLooted(v)
+				local lootedCopper = data["currency"]
+
+				LA:handleCurrencyLooted(lootedCopper)
 			else
 				-- item
-				local itemID = k
+				local itemID = data["itemID"]
+				local itemLink = data["link"]
+				local quantity = data["quantity"]
 
-				local itemLink = v["link"]
-				local quantity = v["quantity"]
-
-				handleItemLooted(itemLink, itemID, quantity)
+				LA:handleItemLooted(itemLink, itemID, quantity)
 			end
 		end
 
@@ -1260,8 +1283,9 @@ function StartSession(showMainUI)
 end
 
 
-function prepareNewSession()
-	Debug("prepareNewSession")
+function LA:prepareNewSession()
+	LA:Debug("prepareNewSession")
+		LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
 
 	-- start: prepare session (for statistics)
 	currentSession = {}
@@ -1269,9 +1293,9 @@ function prepareNewSession()
 	currentSession["mapID"] =  GetCurrentMapAreaID()
 
 	currentSession["settings"] = {}
-	currentSession.settings["qualityFilter"] = getQualityFilter()
-	currentSession.settings["gat"] = getGoldAlertThreshold()
-	currentSession.settings["priceSource"] = getPriceSource()
+	currentSession.settings["qualityFilter"] = LA:getQualityFilter()
+	currentSession.settings["gat"] = LA:getGoldAlertThreshold()
+	currentSession.settings["priceSource"] = LA:getPriceSource()
 
 	currentSession["noteworthyItems"] = {} -- empty table
 	currentSession["liv"] = 0
@@ -1294,8 +1318,8 @@ function prepareNewSession()
 end
 
 
-function DisableLootAppraiser()
-	LA:Print("Disabling LootAppraiser.")
+function LA.DisableLootAppraiser()
+	LA:Print("LootAppraiser DISABLED.")
 
 	startSessionPromptAlreadyAnswerd = true
 	lootAppraiserDisabled = true
@@ -1307,8 +1331,8 @@ end
 --[[------------------------------------------------------------------------
 -- 
 --------------------------------------------------------------------------]]
-function onBtnStartSessionClick()
-	Debug("onBtnStartSessionClick")
+function LA:onBtnStartSessionClick()
+	LA:Debug("onBtnStartSessionClick")
 
 	--sessionIsRunning = true
 
@@ -1319,27 +1343,27 @@ function onBtnStartSessionClick()
 	-- change start button to stop button
 	BUTTON_STOPSESSION:SetText("Stop")
 	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		onBtnStopSessionClick()
+		LA:onBtnStopSessionClick()
 	end)
 
-	refreshUIs()
+	LA:refreshUIs()
 end
 
 
 --[[------------------------------------------------------------------------
 -- Event handler for button 'new session'
 --------------------------------------------------------------------------]]
-function onBtnStopSessionClick()
-	Debug("onBtnStopSessionClick")
+function LA:onBtnStopSessionClick()
+	LA:Debug("onBtnStopSessionClick")
 
 	-- save session
 	if currentSession ~= nil then
 		if currentSession["liv"] and currentSession["liv"] > 0 then
-			Debug("  -> set session end")
+			LA:Debug("  -> set session end")
 			currentSession["end"] = time()
 			currentSession["totalItemsLooted"] = totalItemLootedCounter
 
-			prepareStatisticGroups()
+			LA:prepareStatisticGroups()
 		else
 			-- delete current session
 			local sessions = LA.db.global.sessions
@@ -1355,14 +1379,14 @@ function onBtnStopSessionClick()
 	-- change stop button to start button
 	BUTTON_STOPSESSION:SetText("(Re)Start")
 	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		onBtnStartSessionClick()
+		LA:onBtnStartSessionClick()
 	end)
 
-	refreshUIs()
+	LA:refreshUIs()
 
 	-- reset all values
 	--[[
-	prepareNewSession()
+	LA:prepareNewSession()
 	currentSession = {}
 
 	totalLootedCurrency = 0   	-- the total looted currency during a session
@@ -1392,17 +1416,17 @@ end
 --[[------------------------------------------------------------------------
 -- Event handler for button 'new session'
 --------------------------------------------------------------------------]]
-function onBtnNewSessionClick()
-	Debug("onBtnNewSessionClick")
+function LA:onBtnNewSessionClick()
+	LA:Debug("onBtnNewSessionClick")
 
 	-- save session
 	if currentSession ~= nil then
 		if currentSession["liv"] and currentSession["liv"] > 0 then
-			Debug("  -> set session end")
+			LA:Debug("  -> set session end")
 			currentSession["end"] = time()
 			currentSession["totalItemsLooted"] = totalItemLootedCounter
 
-			prepareStatisticGroups()
+			LA:prepareStatisticGroups()
 		else
 			-- delete current session
 			local sessions = LA.db.global.sessions
@@ -1412,7 +1436,7 @@ function onBtnNewSessionClick()
 	end
 
 	-- reset all values
-	prepareNewSession()
+	LA:prepareNewSession()
 
 	totalLootedCurrency = 0   	-- the total looted currency during a session
 	if VALUE_TOTALCURRENCY ~= nil then
@@ -1438,10 +1462,10 @@ function onBtnNewSessionClick()
 	-- set stop button
 	BUTTON_STOPSESSION:SetText("Stop")
 	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		onBtnStopSessionClick()
+		LA:onBtnStopSessionClick()
 	end)
 
-	refreshUIs()
+	LA:refreshUIs()
 
 	if LAST_NOTEWOTHYITEM_UI then
 		LAST_NOTEWOTHYITEM_UI:SetTitle("Gold Alert Threshold")
@@ -1452,7 +1476,7 @@ end
 --[[------------------------------------------------------------------------
 -- Event handler for button 'destroy trash'
 --------------------------------------------------------------------------]]
-function onBtnDestroyTrashClick()
+function LA:onBtnDestroyTrashClick()
 	local destroyCounter = 0
 
 	for bag = 0, 4 do
@@ -1468,9 +1492,9 @@ function onBtnDestroyTrashClick()
 			end
 
 			-- blacklist
-			if link and isDestroyBlacklistedItems() then
+			if link and LA:isDestroyBlacklistedItems() then
 				local itemID = LA:GetItemID(link)
-				if isItemBlacklisted(itemID) then
+				if LA:isItemBlacklisted(itemID) then
 					PickupContainerItem(bag, slot)
 					DeleteCursorItem()
 
@@ -1493,14 +1517,14 @@ end
 --[[-------------------------------------------------------------------------------------
 -- Event handler for button 'sell trash'
 ---------------------------------------------------------------------------------------]]
-function onBtnSellTrashClick()
+function LA:onBtnSellTrashClick()
 	--Validate whether there is an NPC open and how many items sold
 	local itemCounter = 0
 
 	-- get items in group 'LootAppraiser`Trash' from TSM
 	local trashItems
-	if isSellTrashTsmGroupEnabled() == true then
-	 	trashItems = LA:GetGroupItems(getSellTrashTsmGroup())
+	if LA:isSellTrashTsmGroupEnabled() == true then
+	 	trashItems = LA:GetGroupItems(LA:getSellTrashTsmGroup())
 	end
 
 	for n = 1, GetMerchantNumItems() do	
@@ -1525,10 +1549,10 @@ function onBtnSellTrashClick()
 			end
 
 			--second: sell items in TSM group
-			if isSellTrashTsmGroupEnabled() == true then
+			if LA:isSellTrashTsmGroupEnabled() == true then
 				local id = GetContainerItemID(bag, slot)
 				if id and LA:isItemInList(id, trashItems) then
-					Debug("  id=" .. id .. ", found=" .. tostring(trashItems["i:" .. id]) .. ", link=" .. link)
+					LA:Debug("  id=" .. id .. ", found=" .. tostring(trashItems["i:" .. id]) .. ", link=" .. link)
 					UseContainerItem(bag, slot)
 					itemsSold = itemsSold + 1
 				end
@@ -1547,7 +1571,7 @@ end
 --[[-------------------------------------------------------------------------------------
 -- calculate looted item value / hour
 ---------------------------------------------------------------------------------------]]
-function calcLootedItemValuePerHour()
+function LA:calcLootedItemValuePerHour()
 	-- calc lootedItemValuePerHour
 	local currentTime = time()
 
@@ -1574,12 +1598,14 @@ end
 --[[-------------------------------------------------------------------------------------
 -- increase the noteworthy item counter
 ---------------------------------------------------------------------------------------]]
-function incNoteworthyItemCounter(quantity)
+function LA:incNoteworthyItemCounter(quantity)
 	noteworthyItemCounter = noteworthyItemCounter + quantity
+
+	LA:D("    noteworthy items counter: add " .. tostring(quantity) .. " -> new total: " .. tostring(noteworthyItemCounter))
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		if isDisplayEnabled("showNoteworthyItems") then
+		if LA:isDisplayEnabled("showNoteworthyItems") then
 			-- add to main ui
 			VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
 		end
@@ -1590,12 +1616,14 @@ end
 --[[-------------------------------------------------------------------------------------
 -- increase the looted item counter
 ---------------------------------------------------------------------------------------]]
-function incLootedItemCounter(quantity)
+function LA:incLootedItemCounter(quantity)
 	lootedItemCounter = lootedItemCounter + quantity
+
+	LA:D("    looted items counter: add " .. tostring(quantity) .. " -> new total: " .. tostring(lootedItemCounter))
 
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		if isDisplayEnabled("showItemsLooted") then
+		if LA:isDisplayEnabled("showItemsLooted") then
 			-- add to main ui
 			VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
 		end
@@ -1606,16 +1634,18 @@ end
 --[[-------------------------------------------------------------------------------------
 -- add item value to looted item value and refresh ui
 ---------------------------------------------------------------------------------------]]
-function addItemValue2LootedItemValue(itemValue)
+function LA:addItemValue2LootedItemValue(itemValue)
 	local totalItemValue = currentSession["liv"] or 0
 	totalItemValue = totalItemValue + itemValue
 
+	LA:D("    looted items value: add " .. tostring(itemValue) .. " -> new total: " .. tostring(totalItemValue))
+
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
-		if isDisplayEnabled("showLootedItemValue") then
+		if LA:isDisplayEnabled("showLootedItemValue") then
 			local livValue = LA:FormatTextMoney(totalItemValue)
-			if isDisplayEnabled("showLootedItemValuePerHour") then
-				livValue = livValue .. " (" .. calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
+			if LA:isDisplayEnabled("showLootedItemValuePerHour") then
+				livValue = livValue .. " (" .. LA:calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 			end
 
 			-- add to main ui
@@ -1635,9 +1665,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- add a given item to the top of the loot colletced list
 ---------------------------------------------------------------------------------------]]
-local lootCollectedLastEntry = nil  -- remember last element from loot collected list to add elements before this (on top of the list)
-function addItem2LootCollectedList(itemID, link, quantity, marketValue, noteworthyItemFound)
-	--Debug("addItem2LootCollectedList(itemID=" .. itemID .. ", link=" .. tostring(link) .. ", quantity=" .. quantity .. ")")
+function LA:addItem2LootCollectedList(itemID, link, quantity, marketValue, noteworthyItemFound)
+	--LA:Debug("addItem2LootCollectedList(itemID=" .. itemID .. ", link=" .. tostring(link) .. ", quantity=" .. quantity .. ")")
 
 	-- prepare text
 	local formattedItemValue = LA:FormatTextMoney(marketValue) or 0
@@ -1662,6 +1691,8 @@ function addItem2LootCollectedList(itemID, link, quantity, marketValue, notewort
 			GameTooltip:Hide()
 		end
 	)
+
+	LA:D("  " .. tostring(itemID) .. ": add entry to list " .. preparedText)
 	
 	if lootCollectedLastEntry then
 		GUI_LOOTCOLLECTED:AddChild(LABEL, lootCollectedLastEntry)
@@ -1677,11 +1708,11 @@ end
 --[[-------------------------------------------------------------------------------------
 -- refresh the status bar with the current settings
 ---------------------------------------------------------------------------------------]]
-function refreshStatusText()
+function LA:refreshStatusText()
 	if MAIN_UI ~= nil then
 		-- prepare status text
-		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(getQualityFilter())] 								-- filter
-		preparedText = preparedText .. " - GAT: |cffffffff" .. getGoldAlertThreshold() .. "|cffffd100g|r"				-- gat
+		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(LA:getQualityFilter())] 								-- filter
+		preparedText = preparedText .. " - GAT: |cffffffff" .. LA:getGoldAlertThreshold() .. "|cffffd100g|r"				-- gat
 		preparedText = preparedText .. " - Source: |cffffffff" .. tostring(LA.db.profile.pricesource.source) .. "|r" 	-- price source
 		
 		--MAIN_UI:SetStatusText(preparedText)
@@ -1695,7 +1726,7 @@ end
 ---------------------------------------------------------------------------------------]]
 
 -- add a blank line to the given frame
-function addSpacer(frame)
+function LA:addSpacer(frame)
 	local SPACER = AceGUI:Create("Label")
 	SPACER.label:SetJustifyH("LEFT")
 	SPACER:SetText("   ")
@@ -1709,25 +1740,42 @@ end
 -- checks if a item is blacklisted
 --   check depends on the blacklist options (see config)
 --------------------------------------------------------------------------]]
-function isItemBlacklisted(itemID)
-	--Debug("isItemBlacklisted(): itemID=" .. itemID)
-	--Debug("  isBlacklistTsmGroupEnabled()=" .. tostring(isBlacklistTsmGroupEnabled()))
-	if not isBlacklistTsmGroupEnabled() then
+function LA:isItemBlacklisted(itemID)
+	--LA:Debug("isItemBlacklisted(): itemID=" .. itemID)
+	--LA:Debug("  isBlacklistTsmGroupEnabled()=" .. tostring(LA:isBlacklistTsmGroupEnabled()))
+	if not LA:isBlacklistTsmGroupEnabled() then
 		-- only use static list
 		return ITEM_FILTER_BLACKLIST[tostring(itemID)]
 	end
 
 	-- use TSM group
 	-- get items in group 'LootAppraiser`Blacklist' from TSM
-	--Debug("  getBlacklistTsmGroup()=" .. getBlacklistTsmGroup())
-	local blacklistItems = LA:GetGroupItems(getBlacklistTsmGroup())
+	--LA:Debug("  getBlacklistTsmGroup()=" .. LA:getBlacklistTsmGroup())
+	local blacklistItems = LA:GetGroupItems(LA:getBlacklistTsmGroup())
 
 	local result = LA:isItemInList(itemID, blacklistItems)
-	--Debug("  isItemInList=" .. tostring(result))
+	--LA:Debug("  isItemInList=" .. tostring(result))
 	return result
 end
 
-function isBlacklistTsmGroupEnabled()
+
+--[[-------------------------------------------------------------------------------------
+-- access methods for loot appraiser local variables
+---------------------------------------------------------------------------------------]]
+function LA:getTotalLootedCurrency()
+	return totalLootedCurrency
+end
+
+
+function LA:getNoteworthyItemCounter()
+	return noteworthyItemCounter
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- access methods for loot appraiser db values (saved variables)
+---------------------------------------------------------------------------------------]]
+function LA:isBlacklistTsmGroupEnabled()
 	if LA.db.profile.blacklist.tsmGroupEnabled == nil then
 		LA.db.profile.blacklist.tsmGroupEnabled = dbDefaults.profile.blacklist.tsmGroupEnabled
 	end
@@ -1735,15 +1783,15 @@ function isBlacklistTsmGroupEnabled()
 	return LA.db.profile.blacklist.tsmGroupEnabled
 end
 
-function isDestroyBlacklistedItems()
-	--if isBlacklistTsmGroupEnabled() and LA.db.profile.addBlacklistedItems2DestroyTrash then
+function LA:isDestroyBlacklistedItems()
+	--if LA:isBlacklistTsmGroupEnabled() and LA.db.profile.addBlacklistedItems2DestroyTrash then
 	if LA.db.profile.blacklist.addBlacklistedItems2DestroyTrash then
 		return true
 	end
 	return false
 end
 
-function getBlacklistTsmGroup()
+function LA:getBlacklistTsmGroup()
 	if LA.db.profile.blacklist.tsmGroup == nil then
 		LA.db.profile.blacklist.tsmGroup = dbDefaults.profile.blacklist.tsmGroup
 	end
@@ -1751,7 +1799,7 @@ function getBlacklistTsmGroup()
 	return LA.db.profile.blacklist.tsmGroup
 end
 
-function getGoldAlertThreshold()
+function LA:getGoldAlertThreshold()
 	if LA.db.profile.general.goldAlertThreshold == nil then
 		LA.db.profile.general.goldAlertThreshold = dbDefaults.profile.general.goldAlertThreshold
 	end
@@ -1759,7 +1807,7 @@ function getGoldAlertThreshold()
 	return tonumber(LA.db.profile.general.goldAlertThreshold)
 end
 
-function getQualityFilter()
+function LA:getQualityFilter()
 	if LA.db.profile.general.qualityFilter == nil then
 		LA.db.profile.general.qualityFilter = dbDefaults.profile.general.qualityFilter
 	end
@@ -1767,7 +1815,7 @@ function getQualityFilter()
 	return tonumber(LA.db.profile.general.qualityFilter)
 end
 
-function getIgnoreRandomEnchants()
+function LA:getIgnoreRandomEnchants()
 	if LA.db.profile.general.ignoreRandomEnchants == nil then
 		LA.db.profile.general.ignoreRandomEnchants = dbDefaults.profile.general.ignoreRandomEnchants
 	end
@@ -1783,7 +1831,7 @@ function LA:getSessions()
 	return LA.db.global.sessions
 end
 
-function getPriceSource()
+function LA:getPriceSource()
 	if LA.db.profile.pricesource.source == nil then
 		LA.db.profile.pricesource.source = dbDefaults.profile.pricesource.source
 	end
@@ -1796,7 +1844,7 @@ function getPriceSource()
 	return priceSource
 end
 
-function isToastsEnabled()
+function LA:isToastsEnabled()
 	if LA.db.profile.notification.enableToasts == nil then
 		LA.db.profile.notification.enableToasts = dbDefaults.profile.enableToasts
 	end
@@ -1804,11 +1852,11 @@ function isToastsEnabled()
 	return LA.db.profile.notification.enableToasts
 end
 
-function isSessionRunning()
+function LA:isSessionRunning()
 	return sessionIsRunning
 end
 
-function isPlaySoundEnabled()
+function LA:isPlaySoundEnabled()
 	if LA.db.profile.notification.playSoundEnabled == nil then
 		LA.db.profile.notification.playSoundEnabled = dbDefaults.profile.notification.playSoundEnabled
 	end
@@ -1816,7 +1864,7 @@ function isPlaySoundEnabled()
 	return LA.db.profile.notification.playSoundEnabled
 end
 
-function isSellTrashTsmGroupEnabled()
+function LA:isSellTrashTsmGroupEnabled()
 	if LA.db.profile.sellTrash.tsmGroupEnabled == nil then
 		LA.db.profile.sellTrash.tsmGroupEnabled = dbDefaults.profile.sellTrash.tsmGroupEnabled
 	end
@@ -1824,7 +1872,7 @@ function isSellTrashTsmGroupEnabled()
 	return LA.db.profile.sellTrash.tsmGroupEnabled
 end
 
-function getSellTrashTsmGroup()
+function LA:getSellTrashTsmGroup()
 	if LA.db.profile.sellTrash.tsmGroup == nil then
 		LA.db.profile.sellTrash.tsmGroup = dbDefaults.profile.sellTrash.tsmGroup
 	end
@@ -1832,7 +1880,7 @@ function getSellTrashTsmGroup()
 	return LA.db.profile.sellTrash.tsmGroup
 end
 
-function isDisplayEnabled(name)
+function LA:isDisplayEnabled(name)
 	if LA.db.profile.display[name] == nil then
 		LA.db.profile.display[name] = dbDefaults.profile.display[name]
 	end
@@ -1840,7 +1888,7 @@ function isDisplayEnabled(name)
 	return LA.db.profile.display[name]
 end
 
-function isSurpressSessionStartDialog()
+function LA:isSurpressSessionStartDialog()
 	if LA.db.profile.general.surpressSessionStartDialog == nil then
 		LA.db.profile.general.surpressSessionStartDialog = dbDefaults.profile.general.surpressSessionStartDialog
 	end
@@ -1852,7 +1900,7 @@ function LA:getCurrentSession()
 	return currentSession
 end
 
-function isLootAppraiserLiteEnabled()
+function LA:isLootAppraiserLiteEnabled()
 	if LA.db.profile.display.enableLootAppraiserLite == nil then
 		LA.db.profile.display.enableLootAppraiserLite = dbDefaults.profile.display.enableLootAppraiserLite
 	end
@@ -1860,7 +1908,7 @@ function isLootAppraiserLiteEnabled()
 	return LA.db.profile.display.enableLootAppraiserLite
 end
 
-function isLastNoteworthyItemUIEnabled()
+function LA:isLastNoteworthyItemUIEnabled()
 	if LA.db.profile.display.enableLastNoteworthyItemUI == nil then
 		LA.db.profile.display.enableLastNoteworthyItemUI = dbDefaults.profile.display.enableLastNoteworthyItemUI
 	end
@@ -1868,13 +1916,20 @@ function isLastNoteworthyItemUIEnabled()
 	return LA.db.profile.display.enableLastNoteworthyItemUI
 end
 
+function LA:isDebugOutputEnabled()
+	if LA.db.profile.enableDebugOutput == nil then
+		LA.db.profile.enableDebugOutput = dbDefaults.profile.enableDebugOutput
+	end
+
+	return LA.db.profile.enableDebugOutput
+end
 
 --[[-------------------------------------------------------------------------------------
 -- parse currency text from loot window and covert the result to copper
 -- e.g. 2 silve, 2 copper
 -- result: 202 copper
 ---------------------------------------------------------------------------------------]]
-function getLootedCopperFromText(lootedCurrencyAsText)
+function LA:getLootedCopperFromText(lootedCurrencyAsText)
 	local digits = {}
 	local digitsCounter = 0;
 	lootedCurrencyAsText:gsub("%d+", 
@@ -1904,8 +1959,14 @@ function LA:Debug(msg)
 	end
 end
 
-function Debug(msg)
-	LA:Debug(msg)
+--function Debug(msg)
+--	LA:Debug(msg)
+--end
+
+function LA:D(msg)
+	if LA:isDebugOutputEnabled() then
+		LA:Print(tostring(msg))
+	end
 end
 
 
@@ -1914,7 +1975,7 @@ function string.startsWith(String,Start)
 end
 
 
-function tablelength(T)
+function LA:tablelength(T)
   local count = 0
   for _ in pairs(T) do count = count + 1 end
   return count
@@ -1923,7 +1984,7 @@ end
 ---============================================================
 -- rounds a number to the nearest decimal places
 --
-function round(val, decimal)
+function LA:round(val, decimal)
   if (decimal) then
     return math.floor( (val * 10^decimal) + 0.5) / (10^decimal)
   else
@@ -1932,7 +1993,7 @@ function round(val, decimal)
 end
 
 
-function printSessions()
+function LA:printSessions()
 	if not LA.DEBUG then return end
 
 	local sessions = LA.db.global.sessions
@@ -1943,17 +2004,17 @@ function printSessions()
 		local liv = v["liv"]
 
 		if sessionEnd ~= nil then
-			Debug("  session " .. tostring(i))
-			Debug("    time: " .. date("%x", sessionStart))
+			LA:Debug("  session " .. tostring(i))
+			LA:Debug("    time: " .. date("%x", sessionStart))
 
 			local mapName
 			if sessionMapID ~= nil then
 				mapName = GetMapNameByID(sessionMapID)
 			end
-			Debug("    map: " .. tostring(sessionMapID) .. " (" .. tostring(mapName) .. ")")
+			LA:Debug("    map: " .. tostring(sessionMapID) .. " (" .. tostring(mapName) .. ")")
 
 			local sessionDuration = sessionEnd - sessionStart
-			Debug("    duration: " .. SecondsToTime(sessionDuration))
+			LA:Debug("    duration: " .. SecondsToTime(sessionDuration))
 
 			local factor = 3600
 			if sessionDuration < factor then
@@ -1961,14 +2022,14 @@ function printSessions()
 			end
 
 			local formattedLiv = LA:FormatTextMoney(liv) or 0
-			Debug("    looted item value: " .. formattedLiv)
+			LA:Debug("    looted item value: " .. formattedLiv)
 
 			local livGold = floor(liv/10000)
 			local livGoldPerHour = floor(livGold/sessionDuration*factor)
-			Debug("    liv/h: " .. tostring(livGoldPerHour) .. "g/h")
+			LA:Debug("    liv/h: " .. tostring(livGoldPerHour) .. "g/h")
 		else
 			-- missing end -> remove entry
-			Debug("  session " .. tostring(i) .. " is invalid (missing end)")
+			LA:Debug("  session " .. tostring(i) .. " is invalid (missing end)")
 			--sessions[i] = nil
 		end
 	end

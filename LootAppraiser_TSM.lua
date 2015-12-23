@@ -54,9 +54,9 @@ function LA:GetItemValue(itemID, priceSource)
 	-- special handling for priceSource = 'Custom'
 	if priceSource == "Custom" then
 		if not LA.TSM3 then
-			return TSMAPI:GetCustomPriceSourceValue(itemID, LootAppraiser.db.profile.customPriceSource) -- TSM2
+			return TSMAPI:GetCustomPriceSourceValue(itemID, LA.db.profile.pricesource.customPriceSource) -- TSM2
 		else 
-			return TSMAPI:GetCustomPriceValue(LootAppraiser.db.profile.customPriceSource, itemID) -- TSM3
+			return TSMAPI:GetCustomPriceValue(LA.db.profile.pricesource.customPriceSource, itemID) -- TSM3
 		end
 	end
 
@@ -75,6 +75,7 @@ end
 
 
 function LA:FormatTextMoney(value) 
+	local disabled -- ???
 	if not LA.TSM3 then
 		return TSMAPI:FormatTextMoney(value, nil, true, true, disabled) -- TSM2
 	else

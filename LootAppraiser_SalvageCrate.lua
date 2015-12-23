@@ -8,19 +8,19 @@ local SalvageCrate = LA:NewModule("SalvageCrate", "AceEvent-3.0")
 -- AceAddon-3.0 - module standard methods
 ---------------------------------------------------------------------------------------]]
 function SalvageCrate:OnInitialize()
-	Debug("SalvageCrate:OnInitialize()")
+	LA:Debug("SalvageCrate:OnInitialize()")
 
 end
 
 function SalvageCrate:OnEnable()
-	Debug("SalvageCrate:OnEnable()")
+	LA:Debug("SalvageCrate:OnEnable()")
 
 	-- events for opening of salvage crates
-	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_START", onUnitSpellcast)
-	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_STOP", onUnitSpellcast)
-	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", onUnitSpellcast)
-	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", onUnitSpellcast)
-	SalvageCrate:RegisterEvent("BAG_UPDATE", onBagUpdate)
+	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_START", SalvageCrate.onUnitSpellcast)
+	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_STOP", SalvageCrate.onUnitSpellcast)
+	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", SalvageCrate.onUnitSpellcast)
+	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", SalvageCrate.onUnitSpellcast)
+	SalvageCrate:RegisterEvent("BAG_UPDATE", SalvageCrate.onBagUpdate)
 end
 
 function SalvageCrate:OnDisable()
@@ -41,9 +41,9 @@ local currentLineID = nil -- spell lineID counter.
 local openEndTime = nil -- spell ends on this time
 local bagSnapshot = {} -- bag snapshot
 local newItems = {} -- list of new items
-function onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
+function SalvageCrate.onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 
-	if not isSessionRunning() then return end
+	if not LA:isSessionRunning() then return end
 	
 	-- only salvage spells
 	if not spellID or not salvageSpellIDs[tostring(spellID)] then
@@ -56,7 +56,7 @@ function onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 		bagSnapshot = {}
 		openEndTime = nil
 
-		Debug("    started: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
+		LA:Debug("    started: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
 
 		-- take a snapshot from the bags
 		local freeSlots = 0
@@ -74,7 +74,7 @@ function onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 			end
 		end
 
-		Debug("    free slots=" .. freeSlots)
+		LA:Debug("    free slots=" .. freeSlots)
 
 	elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
 
@@ -83,12 +83,12 @@ function onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 			return
 		end
 
-		Debug("    succeeded: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
+		LA:Debug("    succeeded: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
 
 		openEndTime = time()
 		newItems = {}
 
-		Debug("    openEndTime=" .. tostring(openEndTime))
+		LA:Debug("    openEndTime=" .. tostring(openEndTime))
 
 	elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
 
@@ -97,7 +97,7 @@ function onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 			return
 		end
 
-		Debug("    interrupted: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
+		LA:Debug("    interrupted: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
 
 		-- reset data
 		currentLineID = nil
@@ -112,36 +112,36 @@ end
 -- event handler for
 -- ...BAG_UPDATE (bagID)
 ---------------------------------------------------------------------------------------]]
-function onBagUpdate(event, bagID)
+function SalvageCrate.onBagUpdate(event, bagID)
 
-	if not isSessionRunning() then return end
+	if not LA:isSessionRunning() then return end
 
 	local currentTime = time()
 
 	if not openEndTime or currentTime - openEndTime >= 3 then
-		--Debug("  loot window expired...")
+		--LA:Debug("  loot window expired...")
 		return
 	end
 
-	Debug("onBagUpdate(): bagID=" .. tostring(bagID))
+	LA:Debug("SalvageCrate.onBagUpdate(): bagID=" .. tostring(bagID))
 
 	-- compare snapshot with the current bag and store diff
 	for slot = 1, GetContainerNumSlots(bagID), 1 do
-		local itemID = GetContainerItemID(bagID, slot)
+		local newItemID = GetContainerItemID(bagID, slot)
 		local newCount = select(2, GetContainerItemInfo(bagID, slot))
 
 		-- prepare key and current value
 		local key = "" .. tostring(bagID) .. ":" .. tostring(slot)
-		local newValue = "" .. tostring(itemID) .. ":" .. tostring(newCount)
+		local newValue = "" .. tostring(newItemID) .. ":" .. tostring(newCount)
 
 		-- compare with snapshot
 		local oldValue = bagSnapshot[key]
 		if oldValue ~= newValue then				
-			Debug("    different value for key=" .. key .. ", " .. tostring(oldValue) .. " vs. " .. tostring(newValue))
+			LA:Debug("    different value for key=" .. key .. ", " .. tostring(oldValue) .. " vs. " .. tostring(newValue))
 
 			-- first time see?
 			if newItems[key] == nil then
-				Debug("      processing")
+				LA:Debug("      processing")
 				
 				-- new item
 				newItems[key] = newValue -- store so we only process once
@@ -151,7 +151,7 @@ function onBagUpdate(event, bagID)
 				local oldCount = 0
 
 				if oldValue ~= nil then
-					local oldValueTokens = split(oldValue, ":")
+					local oldValueTokens = SalvageCrate:split(oldValue, ":")
 
 					oldItemId = oldValueTokens[1]
 					oldCount = tonumber(oldValueTokens[2]) or 0
@@ -159,7 +159,7 @@ function onBagUpdate(event, bagID)
 
 
 				if oldItemId ~= newItemID then
-					Debug("        item on this pos changed: " .. tostring(oldItemId) .. " vs. " .. tostring(newItemID) .. " -> set count to 0")
+					LA:Debug("        item on this pos changed: " .. tostring(oldItemId) .. " vs. " .. tostring(newItemID) .. " -> set count to 0")
 					-- old item is gone (e.g. open the last salvage crate on this position) so we also don't want the old count
 					oldCount = 0
 				end
@@ -174,18 +174,18 @@ function onBagUpdate(event, bagID)
 					local itemLink = select(7, GetContainerItemInfo(bagID, slot))
 					local quantity = newCount - oldCount
 
-					--processItem(itemLink, ItemID, ItemQty)
-					handleItemLooted(itemLink, itemID, quantity)
+					--processItem(itemLink, newItemID, ItemQty)
+					LA:handleItemLooted(itemLink, newItemID, quantity)
 				end
 			else
-				Debug("      already processed -> ignore")
+				LA:Debug("      already processed -> ignore")
 			end
 		end
 	end
 end
 
 
-function split(str, sep)
+function SalvageCrate:split(str, sep)
     local sep, fields = sep or ":", {}
     local pattern = string.format("([^%s]+)", sep)
     str:gsub(pattern, 

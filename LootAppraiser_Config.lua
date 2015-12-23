@@ -9,6 +9,17 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
+
+Config.SESSIONDATA_GROUPBY = {
+	["datetime"] = "Date", 
+	--["char"] = "Character", 
+	--["duration"] = "Duration", 
+	["liv"] = "Looted Item Value", 
+	["livPerHour"] = "LIV per hour", 
+	--["noteworthyItemsCount"] = "Noteworthy Items"
+}
+
+
 local options = {
 	type = "group",
 	args = {
@@ -20,7 +31,7 @@ local options = {
 			end,
 			set = function(info, value) 
 				LA.db.profile[info[#info]] = value;
-				refreshStatusText()
+				LA:refreshStatusText()
 			end,
 			childGroups = "tab",
 			args = {
@@ -47,7 +58,7 @@ local options = {
 									LA:Print("Quality Filter set to: " .. LA.QUALITY_FILTER[value] .. " and above.")
 								end
 								LA.db.profile.general[info[#info]] = value;
-								refreshStatusText()
+								LA:refreshStatusText()
 							end,
 						},
 						spacer = {
@@ -64,10 +75,10 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Gold alert threshold set: " .. value .. " gold or higher.")
+									LA:Print("Gold alert threshold set: " .. value .. "|cffffd100g|r or higher.")
 								end
 								LA.db.profile.general[info[#info]] = value;
-								refreshStatusText()
+								LA:refreshStatusText()
 							end,
 						},
 						ignoreRandomEnchants = {
@@ -124,7 +135,7 @@ local options = {
 									LA:Print("Price source changed to: " .. value)
 								end
 								LA.db.profile.pricesource[info[#info]] = value;
-								refreshStatusText()
+								LA:refreshStatusText()
 							end,
 						},
 						customPriceSource = {
@@ -355,7 +366,7 @@ local options = {
 					end,
 					set = function(info, value) 
 						LA.db.profile.display[info[#info]] = value
-						prepareDataContainer()
+						LA:prepareDataContainer()
 					end,
 					args = {
 						displayMainUiOptions = {
@@ -624,6 +635,20 @@ local options = {
 							name = "ACubed10\nBrozerian\nConzec89\nDecepticon2012\nDozerBob\nFatherfajita\nGoblinRaset\nJuniorDeBoss\nMorricade\nPhatLewts\nSelltacular",
 							width = "full", 
 						}, 
+						generalText110 = {
+							type = "description", 
+							order = 110, 
+							fontSize = "small",
+							name = "",
+							width = "full", 
+						}, 
+						enableDebugOutput = {
+							type = "toggle",
+							order = 120,
+							name = "Enable debug output",
+							desc = "Enable debug output",
+							width = "full",
+						},
 					}, 
 				},
 			}, 
@@ -650,7 +675,7 @@ local options = {
 local statisticFrame
 
 function Config:OnInitialize()
-	Debug("Config:OnInitialize()")
+	LA:Debug("Config:OnInitialize()")
 
 	-- register sounds
 	LSM:Register("sound", "Auction Window Open", "Sound/Interface/AuctionWindowOpen.ogg")
@@ -667,11 +692,11 @@ function Config:OnInitialize()
 
 	local lootAppraiserConfig = AceConfigDialog:AddToBlizOptions(LootAppraiser)
 	-- add reset function
-	lootAppraiserConfig.default = resetDB
+	lootAppraiserConfig.default = Config.resetDB
 
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
 
-	prepareStatisticGroups() -- prepare statistic groups
+	LA:prepareStatisticGroups() -- prepare statistic groups
 
 	--testFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser) -- test
 	--test()
@@ -686,8 +711,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- reset loot appraiser db
 ---------------------------------------------------------------------------------------]]
-function resetDB()
-	Debug("resetDB")
+function Config.resetDB()
+	LA:Debug("Config.resetDB")
 
 	LA.db:ResetProfile(false, true)
 
@@ -695,13 +720,13 @@ function resetDB()
 end
 
 
-function prepareStatisticGroups()
-	options.args.statistic.args = getStatisticGroups()
+function LA:prepareStatisticGroups()
+	options.args.statistic.args = Config:getStatisticGroups()
 end
 
 
 local groups = {}
-function test()
+function Config:test()
 	local appName = LootAppraiser .. " Statistic"
 	local name = "Statistic 2"
 	local parent = LootAppraiser
@@ -832,15 +857,15 @@ function test()
 	end
 	
 	select:SetGroupList(grouplist)
-	select:SetCallback("OnGroupSelected", onGroupSelected)
+	select:SetCallback("OnGroupSelected", Config.onGroupSelected)
 	--select:SetGroup(key)
 	blizzOptionsGrp:AddChild(select)
 
 end
 
 
-function onGroupSelected(widget, event, value)
-	Debug("    value=" .. value)
+function Config.onGroupSelected(widget, event, value)
+	LA:Debug("    value=" .. value)
 
 	widget:ReleaseChildren()
 
@@ -861,7 +886,7 @@ function Config:OnDisable()
 end
 
 
-function getOrCreateZoneGrp(groups, session, order)
+function Config:getOrCreateZoneGrp(groups, session, order)
 	-- group name and ID
 	local sessionMapID = session["mapID"]
 
@@ -888,7 +913,7 @@ function getOrCreateZoneGrp(groups, session, order)
 					order = order,
 					name = "Group by",
 					desc = "TBD",
-					values = SESSIONDATA_GROUPBY,
+					values = Config.SESSIONDATA_GROUPBY,
 					inline = true,
 					get = function(info) 
 						if LA.db.profile.sessionData[info[#info]] == nil then
@@ -899,7 +924,7 @@ function getOrCreateZoneGrp(groups, session, order)
 					set = function(info, value) 
 						LA.db.profile.sessionData[info[#info]] = value
 
-						options.args.statistic.args = getStatisticGroups()
+						options.args.statistic.args = Config:getStatisticGroups()
 					end,
 				},
 				-- empty line
@@ -921,17 +946,7 @@ function getOrCreateZoneGrp(groups, session, order)
 end
 
 
-SESSIONDATA_GROUPBY = { -- little hack to sort them in the menu
-	["datetime"] = "Date", 
-	--["char"] = "Character", 
-	--["duration"] = "Duration", 
-	["liv"] = "Looted Item Value", 
-	["livPerHour"] = "LIV per hour", 
-	--["noteworthyItemsCount"] = "Noteworthy Items"
-};
-
-
-function createSessionGrp(session, order)
+function Config:createSessionGrp(session, order)
 	-- get group by information
 	local groupBy = LA.db.profile.sessionData.groupBy
 	if groupBy == nil then
@@ -977,7 +992,7 @@ function createSessionGrp(session, order)
 end
 
 
-function addSessionData(group, key, label, value, order)
+function Config:addSessionData(group, key, label, value, order)
 	-- label
 	group.args["label_" .. key .. "_" .. order] = {
 		type = "description", 
@@ -1004,7 +1019,7 @@ function addSessionData(group, key, label, value, order)
 end
 
 
-function addEmptyLine(group, order)
+function Config:addEmptyLine(group, order)
 	-- empty line
 	group.args["newline_" .. order] = {
 		type = "description",
@@ -1017,8 +1032,8 @@ end
 --[[-------------------------------------------------------------------------------------
 -- prepare statistic groups
 ---------------------------------------------------------------------------------------]]
-function getStatisticGroups()
-	Debug("  getStatisticGroups")
+function Config:getStatisticGroups()
+	LA:Debug("  getStatisticGroups")
 
 	local groups = {}
 
@@ -1031,28 +1046,28 @@ function getStatisticGroups()
 			local sessionStart = session["start"]
 			local liv = session["liv"] or 0
 
-			local zoneGrp = getOrCreateZoneGrp(groups, session, index)
+			local zoneGrp = Config:getOrCreateZoneGrp(groups, session, index)
 
 			-- add session to zone
-			local sessionGrp = createSessionGrp(session, index) -- TODO add group by
+			local sessionGrp = Config:createSessionGrp(session, index) -- TODO add group by
 			zoneGrp.args["session" .. index] = sessionGrp
 
 			-- date time
-			addSessionData(sessionGrp, "datetime", "Date:", date("%m/%d/%Y %I:%M %p", sessionStart), (index+10))
+			Config:addSessionData(sessionGrp, "datetime", "Date:", date("%m/%d/%Y %I:%M %p", sessionStart), (index+10))
 
 			-- player-realm
-			addSessionData(sessionGrp, "char", "Character:", session["player"], (index+20))
+			Config:addSessionData(sessionGrp, "char", "Character:", session["player"], (index+20))
 
 			-- duration
 			local sessionDuration = sessionEnd - sessionStart
-			addSessionData(sessionGrp, "duration", "Duration:", SecondsToTime(sessionDuration), (index+30))
+			Config:addSessionData(sessionGrp, "duration", "Duration:", SecondsToTime(sessionDuration), (index+30))
 
 			-- empty line
-			addEmptyLine(sessionGrp, (index+40))
+			Config:addEmptyLine(sessionGrp, (index+40))
 
 			-- looted item value
 			local formattedLiv = LA:FormatTextMoney(liv) or 0
-			addSessionData(sessionGrp, "liv", "Looted Item Value:", formattedLiv, (index+50))
+			Config:addSessionData(sessionGrp, "liv", "Looted Item Value:", formattedLiv, (index+50))
 
 			-- ...per hour			
 			local factor = 3600
@@ -1062,15 +1077,15 @@ function getStatisticGroups()
 
 			local livGold = floor(liv/10000)
 			local livGoldPerHour = floor(livGold/sessionDuration*factor)
-			addSessionData(sessionGrp, "liv", "...per Hour:", livGoldPerHour .. "|cffffd100g|r/h", (index+60))
+			Config:addSessionData(sessionGrp, "liv", "...per Hour:", livGoldPerHour .. "|cffffd100g|r/h", (index+60))
 
 			-- empty line
-			addEmptyLine(sessionGrp, (index+70))
+			Config:addEmptyLine(sessionGrp, (index+70))
 
 			-- noteworthy items
 			local noteworthyItems = session["noteworthyItems"]
-			local niCount = tlength(noteworthyItems)
-			addSessionData(sessionGrp, "noteworthyItemsCount", "|cffffd100Noteworthy Items:|r", tostring(niCount), (index+70))
+			local niCount = LA:tablelength(noteworthyItems)
+			Config:addSessionData(sessionGrp, "noteworthyItemsCount", "|cffffd100Noteworthy Items:|r", tostring(niCount), (index+70))
 
 			--if niCount > 0 then
 				-- add inline group
@@ -1087,7 +1102,7 @@ function getStatisticGroups()
 
 				local i = 0
 				for itemID, quantity in pairs(noteworthyItems) do
-					--Debug("    " .. tostring(itemID) .. " x" .. tostring(quantity))
+					--LA:Debug("    " .. tostring(itemID) .. " x" .. tostring(quantity))
 
 					if itemID ~= nil then
 						local itemLink = select(2, GetItemInfo(itemID))
@@ -1111,23 +1126,12 @@ function getStatisticGroups()
 end
 
 
-function getIconDelete()
+function Config:getIconDelete()
 	return "Interface\\AddOns\\" .. LA.METADATA.NAME .. "\\Media\\delete2", 16, 16
 end
 
 
-function deleteStatisticEntry(entryID)
-	Debug("  deleteStatisticEntry: entryID=" .. tostring(entryID))
+function Config:deleteStatisticEntry(entryID)
+	LA:Debug("  deleteStatisticEntry: entryID=" .. tostring(entryID))
 end
 
-
-function tlength(T)
-  local count = 0
-  for _ in pairs(T) do count = count + 1 end
-  return count
-end
-
-
-function Debug(msg)
-	LA:Debug(msg)
-end
