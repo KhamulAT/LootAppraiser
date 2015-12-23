@@ -1,5 +1,5 @@
 --[[-------------------------------------------------------------------------------------
--- copy of ace gui 'Window' with loot appriaser lite changes
+-- copy of ace gui 'Window' with loot appraiser changes
 ---------------------------------------------------------------------------------------]]
 local AceGUI = LibStub("AceGUI-3.0")
 

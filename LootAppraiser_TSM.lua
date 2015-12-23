@@ -53,6 +53,7 @@ end
 function LA:GetItemValue(itemID, priceSource)
 	-- special handling for priceSource = 'Custom'
 	if priceSource == "Custom" then
+		LA:D("    price source (custom): " ..  LA.db.profile.pricesource.customPriceSource)
 		if not LA.TSM3 then
 			return TSMAPI:GetCustomPriceSourceValue(itemID, LA.db.profile.pricesource.customPriceSource) -- TSM2
 		else 

@@ -531,9 +531,9 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 		itemLink = select(2, GetItemInfo(itemID)) -- we use the link from GetItemInfo(...) because GetLootSlotLink(...) returns not the base item
 	end
 
+	LA:D("  " .. tostring(itemID) .. ": price source (before checks): " .. tostring(LA:getPriceSource()))
     local singleItemValue = LA:GetItemValue(itemID, LA:getPriceSource()) or 0 -- single item
 		
-	LA:D("  " .. tostring(itemID) .. ": price source (before checks): " .. tostring(LA:getPriceSource()))
 	LA:D("  " .. tostring(itemID) .. ": single item value (before checks): " .. tostring(singleItemValue))
 
     -- blacklisted items
@@ -1573,9 +1573,18 @@ end
 ---------------------------------------------------------------------------------------]]
 function LA:calcLootedItemValuePerHour()
 	-- calc lootedItemValuePerHour
-	local currentTime = time()
+	--local currentTime = time()		
+	--
+	--local delta = currentTime - currentSession["start"]
 
-	local delta = currentTime - currentSession["start"]
+	local offset
+	if pauseStart ~= nil then
+		offset = pauseStart -- session is paused
+	else
+		offset = time() -- session is running
+	end
+
+	local delta = offset - currentSession["start"] - sessionPause
 
 	local factor = 3600
 	if delta < factor then
@@ -1837,9 +1846,9 @@ function LA:getPriceSource()
 	end
 
 	local priceSource = LA.db.profile.pricesource.source
-	if priceSource == "Custom" then
-		priceSource = LA.db.profile.pricesource.customPriceSource
-	end
+	--if priceSource == "Custom" then
+	--	priceSource = LA.db.profile.pricesource.customPriceSource
+	--end
 
 	return priceSource
 end
