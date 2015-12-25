@@ -15,6 +15,19 @@ LA.TSM3 = string.startsWith("" .. TSMVERSION, "v3") or string.startsWith("" .. T
 -- Wrapper for TSMAPI methods --
 --------------------------------
 
+function LA:isItemInGroup(itemID, group)
+	if not LA.TSM3 then
+		-- tsm 2
+		local path = TSMAPI:GetGroupPath("item:" .. tostring(itemString))
+		return path == group
+	else
+		-- tsm 3
+		local path = TSMAPI.Groups:GetPath("i:" .. tostring(itemID))
+		return path == group
+	end
+end
+
+--[[
 function LA:isItemInList(itemID, itemList)
 	if not LA.TSM3 then
 		local searchText = "item:" .. tostring(itemID)
@@ -25,19 +38,13 @@ function LA:isItemInList(itemID, itemList)
 		end
 		return false
 	else
+		--local path = TSMAPI.Groups:GetPath("i:" .. tostring(itemID))
+		--LA:D("    #### get path for item " .. tostring(itemID) .. ": " ..  tostring(path))
+
 		return itemList["i:" .. itemID]
 	end
 end
-
-
-function LA:ImportGroup(importStr, groupPath)
-	if not LA.TSM3 then
-		TSM:ImportGroup(importStr, groupPath) -- TSM2
-	else
-		TSM.Groups:Import(importStr, groupPath) -- TSM3
-	end
-end
-
+]]
 
 function LA:GetGroupItems(path)
 	if not LA.TSM3 then

@@ -234,7 +234,13 @@ local options = {
 						description = {
 							type = "description",
 							order = 10,
-							name = "The black list is intended for all worthless items. They can not be sold to the vendor and the auction value is only theoretical (like the idols and scarabs from AQ20). Therefore, these objects are ignored in the calculation of the looted itemvalue. Note: TSM uses ` as group seperator.",
+							name = "The black list is intended for all worthless items. They can not be sold to the vendor and the auction value is only theoretical (like the idols and scarabs from AQ20). Therefore, these objects are ignored in the calculation of the looted itemvalue.\nNote: TSM uses ` as group seperator.",
+							width = "full"
+						},
+						emptyLine1 = {
+							type = "description",
+							order = 13,
+							name = " ",
 							width = "full"
 						},
 						addBlacklistedItems2DestroyTrash = {
@@ -294,7 +300,13 @@ local options = {
 								return true
 							end,
 						},
-
+						emptyLine2 = {
+							type = "description",
+							order = 40,
+							name = " ",
+							width = "full"
+						},
+						
 
 
 					},

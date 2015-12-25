@@ -95,6 +95,7 @@ LA.PRICE_SOURCE = {
 	["wowuctionRegionMedian"] = "wowuction: Region Median Price"
 };
 
+
 -- define toast template
 LibToast:Register(LootAppraiser, 
 	function(toast, text, iconTexture, qualityID, amountGained, itemValue)
@@ -388,12 +389,34 @@ end
 --[[-------------------------------------------------------------------------------------
 -- open loot appraiser and start a new session
 ---------------------------------------------------------------------------------------]]
-function LA.chatCmdLootAppraiser()
+function LA.chatCmdLootAppraiser(input)
     if not LA:isSessionRunning() then
         LA:StartSession(true)        
     end
 
     LA:ShowMainWindow(true)
+
+    -- for debug only (no official option)
+    if input == "event" then			
+		MAIN_UI.frame:SetScript("OnEvent", 
+			function (self, event, ...) 
+			-- filter events
+				if string.find(event, "LOOT") or string.find(event, "ROLL") then --string.startsWith(event, "LOOT_") or
+					-- prepare event parameters
+					local variables = ""
+					for n=1,select('#',...) do
+						if n > 1 then
+							variables = variables .. "; "
+						end
+						variables = variables .. tostring(select(n,...))
+					end
+
+					LA:Debug("OnEvent: event=" .. tostring(event) .. " with " .. tostring(variables)) 
+				end
+			end
+		)
+		MAIN_UI.frame:RegisterAllEvents()
+	end
 end
 
 
@@ -418,25 +441,24 @@ function LA.onLootSlotCleared(event, slot)
 	if not LA:isSessionRunning() then return end
 
 	LA:Debug("-> loot slot cleared: " .. tostring(slot))
-		LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
+	LA:D("event:OnLootSlotCleared; slot=" .. tostring(slot) )
 
 	local data = savedLoot[tostring(slot)]
 	LA:Debug("-> " .. tostring(data))
-	if data ~= nil then
 
+	if data ~= nil then
 		if data["currency"] then
 			LA:Debug("  -> " .. tostring(data["currency"]) .. " copper")
-			LA:D("event:OnLootSlotCleared; type=currency" )
+			LA:D("  type=currency" )
 
 			local lootedCopper = data["currency"]
 
 			savedLoot[tostring(slot)] = nil
 
 			LA:handleCurrencyLooted(lootedCopper)
-
 		else
 			LA:Debug("  -> " .. tostring(data["link"]) .. " x" .. tostring(data["quantity"]))
-			LA:D("event:OnLootSlotCleared; type=item" )
+			LA:D("  type=item" )
 
 			local itemLink = data["link"]
 			local quantity = data["quantity"]
@@ -445,11 +467,11 @@ function LA.onLootSlotCleared(event, slot)
 			savedLoot[tostring(slot)] = nil
 
 			LA:handleItemLooted(itemLink, itemID, quantity)
-
 		end
 		
 		LA:Debug("loot slot cleared with " .. LA:tablelength(savedLoot) .. " items remaining")
-
+	else
+		LA:D("  no data for slot=" .. tostring(slot) )
 	end
 end
 
@@ -469,6 +491,11 @@ function LA.onLootOpened(event, ...)
 			LA:ShowStartSessionDialog()
 		end
 	else
+		-- pause
+		if pauseStart ~= nil then
+			LA:restartSession()
+		end
+
 		-- Cycle through each looted item --
 		LA:Debug("loot open started")
 		savedLoot = {}
@@ -805,7 +832,7 @@ function LA:ShowMainWindow(showMainUI)
 	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
-	MAIN_UI:SetWidth(400)
+	MAIN_UI:SetWidth(410)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
@@ -926,7 +953,6 @@ function LA:ShowMainWindow(showMainUI)
 			LA:ShowLastNoteworthyItemWindow()
 		end
 	end
-		LA:Debug("  savedLoot: " .. LA:tablelength(savedLoot) .. " items")
 end
 
 
@@ -954,7 +980,7 @@ function LA:prepareDataContainer()
 	-- prepare data container with current rows
 
 	-- zone and session duration
-	local labelWidth = 199
+	local labelWidth = 209
 	local valueWidth = 166
 
 	local grp = AceGUI:Create("SimpleGroup")
@@ -1017,7 +1043,7 @@ function LA:defineRowForFrame(frame, id, name, value)
 		return 
 	end
 
-	local labelWidth = 120
+	local labelWidth = 130
 	local valueWidth = 245
 
 	local grp = AceGUI:Create("SimpleGroup")
@@ -1329,15 +1355,13 @@ end
 
 
 --[[------------------------------------------------------------------------
--- 
+-- Event handler for button '(Re)Start'
 --------------------------------------------------------------------------]]
 function LA:onBtnStartSessionClick()
 	LA:Debug("onBtnStartSessionClick")
 
-	--sessionIsRunning = true
-
+--[[
 	sessionPause = sessionPause + (time() - pauseStart)
-
 	pauseStart = nil
 
 	-- change start button to stop button
@@ -1346,6 +1370,24 @@ function LA:onBtnStartSessionClick()
 		LA:onBtnStopSessionClick()
 	end)
 
+	LA:refreshUIs()
+	]]
+	LA:restartSession()
+end
+
+
+function LA:restartSession()
+	-- calc pause add add to sessionPause
+	sessionPause = sessionPause + (time() - pauseStart)
+	pauseStart = nil
+
+	-- change start button to stop button
+	BUTTON_STOPSESSION:SetText("Stop")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		LA:onBtnStopSessionClick()
+	end)
+
+	-- ui refresh
 	LA:refreshUIs()
 end
 
@@ -1522,10 +1564,10 @@ function LA:onBtnSellTrashClick()
 	local itemCounter = 0
 
 	-- get items in group 'LootAppraiser`Trash' from TSM
-	local trashItems
-	if LA:isSellTrashTsmGroupEnabled() == true then
-	 	trashItems = LA:GetGroupItems(LA:getSellTrashTsmGroup())
-	end
+	--local trashItems
+	--if LA:isSellTrashTsmGroupEnabled() == true then
+	-- 	trashItems = LA:GetGroupItems(LA:getSellTrashTsmGroup())
+	--end
 
 	for n = 1, GetMerchantNumItems() do	
 		local merchantItemName = select(1, GetMerchantItemInfo(n))
@@ -1551,8 +1593,9 @@ function LA:onBtnSellTrashClick()
 			--second: sell items in TSM group
 			if LA:isSellTrashTsmGroupEnabled() == true then
 				local id = GetContainerItemID(bag, slot)
-				if id and LA:isItemInList(id, trashItems) then
-					LA:Debug("  id=" .. id .. ", found=" .. tostring(trashItems["i:" .. id]) .. ", link=" .. link)
+				--if id and LA:isItemInList(id, trashItems) then
+				if id and LA:isItemInGroup(id, LA:getSellTrashTsmGroup()) then
+					--LA:Debug("  id=" .. id .. ", found=" .. tostring(trashItems["i:" .. id]) .. ", link=" .. link)
 					UseContainerItem(bag, slot)
 					itemsSold = itemsSold + 1
 				end
@@ -1760,9 +1803,10 @@ function LA:isItemBlacklisted(itemID)
 	-- use TSM group
 	-- get items in group 'LootAppraiser`Blacklist' from TSM
 	--LA:Debug("  getBlacklistTsmGroup()=" .. LA:getBlacklistTsmGroup())
-	local blacklistItems = LA:GetGroupItems(LA:getBlacklistTsmGroup())
+	--local blacklistItems = LA:GetGroupItems(LA:getBlacklistTsmGroup())
 
-	local result = LA:isItemInList(itemID, blacklistItems)
+	--local result = LA:isItemInList(itemID, blacklistItems)
+	local result = LA:isItemInGroup(itemID, LA:getBlacklistTsmGroup())
 	--LA:Debug("  isItemInList=" .. tostring(result))
 	return result
 end
