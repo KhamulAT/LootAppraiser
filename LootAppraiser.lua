@@ -251,6 +251,8 @@ function LA:OnInitialize()
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
 	GameTooltip:HookScript("OnTooltipSetItem", OnTooltipSetItem)
+
+	hooksecurefunc("LootSlot", LA.hook_LootSlot)
 end
 
 
@@ -267,11 +269,15 @@ function LA:OnEnable()
 	LA:RegisterEvent("LOOT_OPENED", LA.onLootOpened)
 	LA:RegisterEvent("LOOT_SLOT_CLEARED", LA.onLootSlotCleared)
 
+	-- ...loot roll
+	LA:RegisterEvent("START_LOOT_ROLL", LA.onStartLootRoll)
+	LA:RegisterEvent("LOOT_ITEM_ROLL_WON", LA.onLootItemRollWon)
+
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
 	local realm = GetRealmName()
 
-	if (nameString == "xNetatik" or nameString == "Cibane") and realm == "Antonidas" then
+	if (nameString == "xNetatik" or nameString == "xCibane") and realm == "Antonidas" then
 		LA:Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
@@ -411,12 +417,26 @@ function LA.chatCmdLootAppraiser(input)
 						variables = variables .. tostring(select(n,...))
 					end
 
-					LA:Debug("OnEvent: event=" .. tostring(event) .. " with " .. tostring(variables)) 
+					LA:D("### event=" .. tostring(event) .. " with " .. tostring(variables)) 
 				end
 			end
 		)
 		MAIN_UI.frame:RegisterAllEvents()
+		LA:Print("Debug: events activated")
 	end
+end
+
+
+function LA:join(...)
+	local variables = ""
+	for n=1,select('#',...) do
+		if n > 1 then
+			variables = variables .. "; "
+		end
+		variables = variables .. tostring(select(n,...))
+	end
+
+	return variables
 end
 
 
@@ -435,25 +455,84 @@ end
 --[[-------------------------------------------------------------------------------------
 -- event handler
 ---------------------------------------------------------------------------------------]]
+local lootRolls = {}
+function LA.onLootItemRollWon(event, link, count, quality, roll)
+	-- is LootAppraiser disabled?
+	if lootAppraiserDisabled then return end
+	if not LA:isSessionRunning() then return end
+
+	LA:D("event:OnLootItemRollWon; link=" .. link)
+
+	local savedLootRoll = lootRolls[link]
+
+	if savedLootRoll ~= nil then
+		LA:D("  saved id=" .. savedLootRoll)
+		
+		lootRolls[link] = nil
+
+		local _, itemID = strsplit(":", link)
+
+		LA:D("  itemID=" .. itemID)
+
+		-- item gewonnen, aber wie erfahren wir nun das es bereits gezählt wurde...
+		local foundAtSlot
+		for slot, data in pairs(savedLoot) do
+			if data["link"] == link then
+				foundAtSlot = slot
+				savedLoot[slot] = nil -- remove to prevent double counting
+			end
+		end
+
+		if foundAtSlot ~= nil then
+			LA:D("    found in savedLoot: slot=" .. foundAtSlot)
+			LA:handleItemLooted(link, itemID, count)
+		else
+			LA:D("    not found in savedLoot")
+		end
+	end
+end
+
+
+function LA.onStartLootRoll(event, id, time)
+	-- is LootAppraiser disabled?
+	if lootAppraiserDisabled then return end
+	if not LA:isSessionRunning() then return end
+
+	local link = GetLootRollItemLink(id)
+
+	LA:D("event:OnStartLootRoll; id=" .. tostring(id) .. "; link=" .. link)
+
+	lootRolls[link] = id
+end
+
+
+function LA.hook_LootSlot(...)
+	local slot = select(1, ...)
+	LA:D("hook:LootSlot; slot=" .. tostring(slot))
+
+	LA.onLootSlotCleared("LOOT_SLOT_CLEARED", slot)
+end
+
+
 function LA.onLootSlotCleared(event, slot)
 	-- is LootAppraiser disabled?
 	if lootAppraiserDisabled then return end
 	if not LA:isSessionRunning() then return end
 
 	LA:Debug("-> loot slot cleared: " .. tostring(slot))
-	LA:D("event:OnLootSlotCleared; slot=" .. tostring(slot) )
+	LA:D("event:OnLootSlotCleared; slot=" .. tostring(slot))
 
 	local data = savedLoot[tostring(slot)]
 	LA:Debug("-> " .. tostring(data))
 
 	if data ~= nil then
+		savedLoot[tostring(slot)] = nil
+
 		if data["currency"] then
 			LA:Debug("  -> " .. tostring(data["currency"]) .. " copper")
 			LA:D("  type=currency" )
 
 			local lootedCopper = data["currency"]
-
-			savedLoot[tostring(slot)] = nil
 
 			LA:handleCurrencyLooted(lootedCopper)
 		else
@@ -463,8 +542,6 @@ function LA.onLootSlotCleared(event, slot)
 			local itemLink = data["link"]
 			local quantity = data["quantity"]
 			local itemID = data["itemID"]
-
-			savedLoot[tostring(slot)] = nil
 
 			LA:handleItemLooted(itemLink, itemID, quantity)
 		end
@@ -476,9 +553,12 @@ function LA.onLootSlotCleared(event, slot)
 end
 
 
+local openSavedLoot = {}
 function LA.onLootOpened(event, ...)
 	-- is LootAppraiser disabled?
 	if lootAppraiserDisabled then return end
+
+	LA:D("event:OnLootOpened")
 
 	-- is a loot appraiser session running?
 	if not LA:isSessionRunning() then
@@ -498,6 +578,18 @@ function LA.onLootOpened(event, ...)
 
 		-- Cycle through each looted item --
 		LA:Debug("loot open started")
+
+		-- todo: only necessary if in group
+		if LA:tablelength(savedLoot) > 0 then
+			LA:D("  savedLoot from previous round: " .. LA:tablelength(savedLoot) .. " items")
+
+			for slot, data in pairs(savedLoot) do
+				if data["link"] ~= nil then
+					openSavedLoot[data["link"]] = data
+				end
+			end
+		end
+
 		savedLoot = {}
 
 		for i = 1, GetNumLootItems() do
