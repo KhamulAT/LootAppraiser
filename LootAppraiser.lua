@@ -252,7 +252,7 @@ function LA:OnInitialize()
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
 	GameTooltip:HookScript("OnTooltipSetItem", OnTooltipSetItem)
 
-	hooksecurefunc("LootSlot", LA.hook_LootSlot)
+	--hooksecurefunc("LootSlot", LA.hook_LootSlot)
 end
 
 
@@ -266,12 +266,16 @@ function LA:OnEnable()
 
 	-- register event for...
 	-- ...loot window open
-	LA:RegisterEvent("LOOT_OPENED", LA.onLootOpened)
-	LA:RegisterEvent("LOOT_SLOT_CLEARED", LA.onLootSlotCleared)
+	--LA:RegisterEvent("LOOT_OPENED", LA.onLootOpened)
+	--LA:RegisterEvent("LOOT_SLOT_CLEARED", LA.onLootSlotCleared)
 
 	-- ...loot roll
-	LA:RegisterEvent("START_LOOT_ROLL", LA.onStartLootRoll)
-	LA:RegisterEvent("LOOT_ITEM_ROLL_WON", LA.onLootItemRollWon)
+	--LA:RegisterEvent("START_LOOT_ROLL", LA.onStartLootRoll)
+	--LA:RegisterEvent("LOOT_ITEM_ROLL_WON", LA.onLootItemRollWon)
+
+	-- test
+	LA:RegisterEvent("LOOT_OPENED", LA.testOnLootOpened)
+	LA:RegisterEvent("BAG_UPDATE", LA.testOnBagUpdate)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
@@ -288,6 +292,126 @@ function LA:OnDisable()
 	-- nothing to do
 end
 
+
+local currentSavedLoot = {}
+local currentBagSnapshots = {}
+
+
+function LA.testOnBagUpdate(event, bagID)
+	-- is LootAppraiser running?
+	if lootAppraiserDisabled then return end
+	if not LA:isSessionRunning() then return end
+
+	if bagID > NUM_BAG_SLOTS then return end -- we only monitor our char bags
+
+	LA:D("event:testOnBagUpdate with bagID=" .. tostring(bagID))
+
+	local bagSnapshot = currentBagSnapshots[bagID]
+	--LA:D("  bagSnapshot=" .. tostring(bagSnapshot))
+
+	for slot = 1, GetContainerNumSlots(bagID), 1 do
+		local currentItemID = GetContainerItemID(bagID, slot)
+		local currentCount = select(2, GetContainerItemInfo(bagID, slot))
+
+		-- prepare key and value
+		local key = tostring(slot)
+		local currentValue = "" .. tostring(currentItemID) .. ":" .. tostring(currentCount)
+
+		local value = bagSnapshot[key]
+		if value ~= currentValue then
+			LA:D("  value at slot " .. tostring(slot) .. " changed from " .. tostring(value) .. " to " .. currentValue)
+
+			-- check against saved loot
+			local data = currentSavedLoot[currentItemID]
+			if data ~= nil then
+				currentSavedLoot[currentItemID] = nil -- remove from saved loot
+
+				local itemLink = data["link"]
+				local quantity = data["quantity"]
+				local itemID = data["itemID"]
+
+				LA:D("    handle item " .. data["link"])
+				LA:handleItemLooted(itemLink, itemID, quantity)
+			else
+				LA:D("    ignore bag update of item " .. tostring(currentItemID))
+			end
+
+			-- set new value
+			bagSnapshot[key] = currentValue
+		end
+	end
+end
+
+
+function LA.testOnLootOpened( ... )
+	-- is LootAppraiser running?
+	if lootAppraiserDisabled then return end
+	if not LA:isSessionRunning() then return end
+
+	-- clear the table
+	currentSavedLoot = {}
+
+	-- save current loot
+	for i = 1, GetNumLootItems() do
+		local slotType = GetLootSlotType(i)
+
+		if slotType == 1 then
+			-- item looted
+			local itemLink = GetLootSlotLink(i)
+			local itemID = LA:GetItemID(itemLink, true) -- get item id
+
+			local quantity = select(3, GetLootSlotInfo(i))
+
+			local data = {}
+			data["link"] = itemLink
+			data["quantity"] = quantity
+			data["itemID"] = itemID
+
+			-- save data
+			currentSavedLoot[itemID] = data
+
+		elseif slotType == 2 then
+			-- currency looted
+
+			local lootedCoin = select(2, GetLootSlotInfo(i))
+			local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
+
+			local data = {}
+			data["currency"] = lootedCopper
+
+			-- save data
+			--currentSavedLoot[tostring(i)] = data
+		end
+	end
+
+	-- save current bag content
+	for bagID = 0, NUM_BAG_SLOTS, 1 do
+		local bagSnapshot = {}
+
+		for slot = 1, GetContainerNumSlots(bagID), 1 do
+			local itemID = GetContainerItemID(bagID, slot)
+			local count = select(2, GetContainerItemInfo(bagID, slot))
+
+			-- prepare key and value
+			local key = tostring(slot)
+			local value = "" .. tostring(itemID) .. ":" .. tostring(count)
+
+			bagSnapshot[key] = value
+		end
+
+		currentBagSnapshots[bagID] = bagSnapshot
+	end
+
+	-- todo: remove
+	LA:D("event:testOnLootOpened")
+	for key, value in pairs(currentSavedLoot) do
+		local data = ""
+		for k,v in pairs(value) do
+			data = data .. k .. "=" .. v .. "; "
+		end
+		LA:D("  key=" .. key .. "; value=" .. data)
+	end
+end
 
 --[[-------------------------------------------------------------------------------------
 -- init lootappriaser db
@@ -407,7 +531,7 @@ function LA.chatCmdLootAppraiser(input)
 		MAIN_UI.frame:SetScript("OnEvent", 
 			function (self, event, ...) 
 			-- filter events
-				if string.find(event, "LOOT") or string.find(event, "ROLL") then --string.startsWith(event, "LOOT_") or
+				if string.find(event, "LOOT") and not (event == "BAG_UPDATE_COOLDOWN") then --string.startsWith(event, "LOOT_") or
 					-- prepare event parameters
 					local variables = ""
 					for n=1,select('#',...) do
@@ -467,7 +591,7 @@ function LA.onLootItemRollWon(event, link, count, quality, roll)
 
 	if savedLootRoll ~= nil then
 		LA:D("  saved id=" .. savedLootRoll)
-		
+
 		lootRolls[link] = nil
 
 		local _, itemID = strsplit(":", link)
@@ -505,12 +629,17 @@ function LA.onStartLootRoll(event, id, time)
 	lootRolls[link] = id
 end
 
-
+-- todo: record all items into a table and check against bag update events
 function LA.hook_LootSlot(...)
 	local slot = select(1, ...)
 	LA:D("hook:LootSlot; slot=" .. tostring(slot))
 
-	LA.onLootSlotCleared("LOOT_SLOT_CLEARED", slot)
+	local link = GetLootSlotLink(slot)
+	if not lootRolls[link] then
+		LA:D("  delegate to LOOT_SLOT_CLEARED")
+
+		LA.onLootSlotCleared("LOOT_SLOT_CLEARED", slot)
+	end
 end
 
 
