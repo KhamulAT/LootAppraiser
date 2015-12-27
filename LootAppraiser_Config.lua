@@ -90,7 +90,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Ignore random enchants set: " .. tostring(value) .. ".")
+									LA:Print("Ignore random enchants: " .. LA:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.general[info[#info]] = value;
 							end,
@@ -104,7 +104,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Suppress 'Start Session' dialogue: " .. tostring(value) .. ".")
+									LA:Print("Suppress 'Start Session' dialogue: " .. LA:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.general[info[#info]] = value;
 							end,
@@ -189,7 +189,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.sellTrash[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Sell trash via TSM group set: " .. tostring(value) .. ".")
+									LA:Print("Sell trash via TSM group: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.sellTrash[info[#info]] = value;
 							end,
@@ -257,7 +257,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Add blacklisted items to destroy trash set: " .. tostring(value) .. ".")
+									LA:Print("Add blacklisted items to destroy trash: " .. LA:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
@@ -271,7 +271,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.blacklist[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Blacklist items via TSM group set: " .. tostring(value) .. ".")
+									LA:Print("Blacklist items via TSM group: " .. LA:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
@@ -338,7 +338,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.notification[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Enable Toasts set: " .. tostring(value) .. ".")
+									LA:Print("Enable Toasts set: " .. LA:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.notification[info[#info]] = value;
 							end,
@@ -1135,6 +1135,15 @@ function Config:getStatisticGroups()
 	end
 	
 	return groups
+end
+
+
+function Config:formatBoolean(flag)
+	if flag then
+		return "|cff00ff00" .. "activated" .. "|r"
+	else
+		return "|cffff0000" .. "deactivated" .. "|r"
+	end
 end
 
 

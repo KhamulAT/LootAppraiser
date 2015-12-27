@@ -281,7 +281,7 @@ function LA:OnEnable()
 	local nameString = GetUnitName("player", true)
 	local realm = GetRealmName()
 
-	if (nameString == "xNetatik" or nameString == "Sailas") and realm == "Antonidas" then
+	if (nameString == "xNetatik" or nameString == "xSailas") and realm == "Antonidas" then
 		LA:Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
@@ -347,70 +347,87 @@ end
 function LA.testOnLootOpened( ... )
 	-- is LootAppraiser running?
 	if lootAppraiserDisabled then return end
-	if not LA:isSessionRunning() then return end
 
-	-- clear the table
-	currentSavedLoot = {}
+	-- is a loot appraiser session running?
+	if not LA:isSessionRunning() then
+		-- no session -> should we ask for session start?
+		if not startSessionPromptAlreadyAnswerd and not LA:isSurpressSessionStartDialog() then
+			-- save current loot
+			LA:saveCurrentLoot()
 
-	-- save current loot
-	for i = 1, GetNumLootItems() do
-		local slotType = GetLootSlotType(i)
-
-		if slotType == 1 then
-			-- item looted
-			local itemLink = GetLootSlotLink(i)
-			local itemID = LA:GetItemID(itemLink, true) -- get item id
-
-			local quantity = select(3, GetLootSlotInfo(i))
-
-			local data = {}
-			data["link"] = itemLink
-			data["quantity"] = quantity
-			data["itemID"] = itemID
-
-			-- save data
-			currentSavedLoot[itemID] = data
-
-		elseif slotType == 2 then
-			-- currency looted
-
-			local lootedCoin = select(2, GetLootSlotInfo(i))
-			local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
-
-			local data = {}
-			data["currency"] = lootedCopper
-
-			-- save data
-			--currentSavedLoot[tostring(i)] = data
+			-- and open dialog
+			LA:ShowStartSessionDialog()
 		end
-	end
-
-	-- save current bag content
-	for bagID = 0, NUM_BAG_SLOTS, 1 do
-		local bagSnapshot = {}
-
-		for slot = 1, GetContainerNumSlots(bagID), 1 do
-			local itemID = GetContainerItemID(bagID, slot)
-			local count = select(2, GetContainerItemInfo(bagID, slot))
-
-			-- prepare key and value
-			local key = tostring(slot)
-			local value = "" .. tostring(itemID) .. ":" .. tostring(count)
-
-			bagSnapshot[key] = value
+	else
+		-- pause
+		if pauseStart ~= nil then
+			LA:restartSession()
 		end
 
-		currentBagSnapshots[bagID] = bagSnapshot
-	end
+		-- clear the table
+		currentSavedLoot = {}
 
-	-- todo: remove
-	LA:D("event:testOnLootOpened")
-	for key, value in pairs(currentSavedLoot) do
-		local data = ""
-		for k,v in pairs(value) do
-			data = data .. k .. "=" .. v .. "; "
+		-- save current loot
+		for i = 1, GetNumLootItems() do
+			local slotType = GetLootSlotType(i)
+
+			if slotType == 1 then
+				-- item looted
+				local itemLink = GetLootSlotLink(i)
+				local itemID = LA:GetItemID(itemLink, true) -- get item id
+
+				local quantity = select(3, GetLootSlotInfo(i))
+
+				local data = {}
+				data["link"] = itemLink
+				data["quantity"] = quantity
+				data["itemID"] = itemID
+
+				-- save data
+				currentSavedLoot[itemID] = data
+
+			elseif slotType == 2 then
+				-- currency looted
+
+				local lootedCoin = select(2, GetLootSlotInfo(i))
+				local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
+
+				--local data = {}
+				--data["currency"] = lootedCopper
+
+				-- save data
+				LA:handleCurrencyLooted(lootedCopper)
+				--currentSavedLoot[tostring(i)] = data
+			end
 		end
-		LA:D("  key=" .. key .. "; value=" .. data)
+
+		-- save current bag content
+		for bagID = 0, NUM_BAG_SLOTS, 1 do
+			local bagSnapshot = {}
+
+			for slot = 1, GetContainerNumSlots(bagID), 1 do
+				local itemID = GetContainerItemID(bagID, slot)
+				local count = select(2, GetContainerItemInfo(bagID, slot))
+
+				-- prepare key and value
+				local key = tostring(slot)
+				local value = "" .. tostring(itemID) .. ":" .. tostring(count)
+
+				bagSnapshot[key] = value
+			end
+
+			currentBagSnapshots[bagID] = bagSnapshot
+		end
+
+		-- todo: remove
+		LA:D("event:testOnLootOpened")
+		for key, value in pairs(currentSavedLoot) do
+			local data = ""
+			for k,v in pairs(value) do
+				data = data .. k .. "=" .. v .. "; "
+			end
+			LA:D("  key=" .. key .. "; value=" .. data)
+		end
 	end
 end
 
@@ -548,6 +565,11 @@ function LA.chatCmdLootAppraiser(input)
 		)
 		MAIN_UI.frame:RegisterAllEvents()
 		LA:Print("Debug: events activated")
+	end
+
+	if input == "debug" then
+		LA:Debug("Debug: enabled")
+		LA.DEBUG = true
 	end
 end
 
@@ -1215,9 +1237,9 @@ function LA:prepareDataContainer()
 	local zoneInfo = GetMapNameByID(currentMapID)
 	
 	VALUE_ZONE = AceGUI:Create("Label")
+	VALUE_ZONE.label:SetWordWrap(false)
 	VALUE_ZONE:SetText(zoneInfo)
 	VALUE_ZONE:SetWidth(labelWidth) -- TODO
-	VALUE_ZONE:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	VALUE_ZONE.label:SetJustifyH("LEFT")
 	grp:AddChild(VALUE_ZONE)
 
@@ -1225,7 +1247,6 @@ function LA:prepareDataContainer()
     VALUE_SESSIONDURATION = AceGUI:Create("Label")
 	VALUE_SESSIONDURATION:SetText("not running")
 	VALUE_SESSIONDURATION:SetWidth(valueWidth) -- TODO
-	VALUE_SESSIONDURATION:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
 	grp:AddChild(VALUE_SESSIONDURATION)
 
@@ -1277,7 +1298,6 @@ function LA:defineRowForFrame(frame, id, name, value)
 	local label = AceGUI:Create("Label")
 	label:SetText(name)
 	label:SetWidth(labelWidth) -- TODO
-	label:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	label.label:SetJustifyH("LEFT")
 	grp:AddChild(label)
 
@@ -1285,7 +1305,6 @@ function LA:defineRowForFrame(frame, id, name, value)
 	local VALUE = AceGUI:Create("Label")
 	VALUE:SetText(value)
 	VALUE:SetWidth(valueWidth) -- TODO
-	VALUE:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	VALUE.label:SetJustifyH("RIGHT")
 	grp:AddChild(VALUE)
 
@@ -1952,7 +1971,6 @@ function LA:addItem2LootCollectedList(itemID, link, quantity, marketValue, notew
 	LABEL:SetText(preparedText)
 	LABEL.label:SetJustifyH("LEFT")
 	LABEL:SetWidth(350)
-	--LABEL:SetFont("Fonts\\FRIZQT__.TTF", 12)
 	LABEL:SetCallback("OnEnter", 
 		function()
 			GameTooltip:SetOwner(MAIN_UI.frame, "ANCHOR_CURSOR")  -- LootAppraiser.GUI is the AceGUI-Frame but we need the real frame
@@ -2005,7 +2023,6 @@ function LA:addSpacer(frame)
 	SPACER.label:SetJustifyH("LEFT")
 	SPACER:SetText("   ")
 	SPACER:SetWidth(350)
-	--SPACER:SetFont("Fonts\\FRIZQT__.TTF", 6)
 	frame:AddChild(SPACER)
 end
 
