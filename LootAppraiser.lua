@@ -281,7 +281,7 @@ function LA:OnEnable()
 	local nameString = GetUnitName("player", true)
 	local realm = GetRealmName()
 
-	if (nameString == "xNetatik" or nameString == "xCibane") and realm == "Antonidas" then
+	if (nameString == "xNetatik" or nameString == "Sailas") and realm == "Antonidas" then
 		LA:Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
@@ -304,10 +304,11 @@ function LA.testOnBagUpdate(event, bagID)
 
 	if bagID > NUM_BAG_SLOTS then return end -- we only monitor our char bags
 
-	LA:D("event:testOnBagUpdate with bagID=" .. tostring(bagID))
-
 	local bagSnapshot = currentBagSnapshots[bagID]
+	if bagSnapshot == nil then return end
 	--LA:D("  bagSnapshot=" .. tostring(bagSnapshot))
+
+	LA:D("event:testOnBagUpdate with bagID=" .. tostring(bagID))
 
 	for slot = 1, GetContainerNumSlots(bagID), 1 do
 		local currentItemID = GetContainerItemID(bagID, slot)

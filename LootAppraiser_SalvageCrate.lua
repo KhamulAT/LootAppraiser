@@ -17,7 +17,7 @@ function SalvageCrate:OnEnable()
 
 	-- events for opening of salvage crates
 	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_START", SalvageCrate.onUnitSpellcast)
-	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_STOP", SalvageCrate.onUnitSpellcast)
+	--SalvageCrate:RegisterEvent("UNIT_SPELLCAST_STOP", SalvageCrate.onUnitSpellcast)
 	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", SalvageCrate.onUnitSpellcast)
 	SalvageCrate:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", SalvageCrate.onUnitSpellcast)
 	SalvageCrate:RegisterEvent("BAG_UPDATE", SalvageCrate.onBagUpdate)
@@ -37,10 +37,13 @@ end
 ---------------------------------------------------------------------------------------]]
 local salvageSpellIDs = {["174798"] = true, ["168179"] = true, ["168178"] = true, ["168180"] = true}
 
+
 local currentLineID = nil -- spell lineID counter.
 local openEndTime = nil -- spell ends on this time
-local bagSnapshot = {} -- bag snapshot
+local scBagSnapshot = {} -- bag snapshot
 local newItems = {} -- list of new items
+
+
 function SalvageCrate.onUnitSpellcast(event, unitID, spell, rank, lineID, spellID)
 
 	if not LA:isSessionRunning() then return end
@@ -53,15 +56,15 @@ function SalvageCrate.onUnitSpellcast(event, unitID, spell, rank, lineID, spellI
 	if event == "UNIT_SPELLCAST_START" then
 		-- store lineID for the upcomming events
 		currentLineID = lineID
-		bagSnapshot = {}
+		scBagSnapshot = {}
 		openEndTime = nil
 
 		LA:Debug("    started: unitID=" .. unitID .. ", spell=" .. spell .. ", rank=" .. rank .. ", lineID=" .. tostring(lineID) .. ", spellID=" .. tostring(spellID))
 
 		-- take a snapshot from the bags
-		local freeSlots = 0
-		for bag = 1, NUM_BAG_SLOTS, 1 do
-			freeSlots = freeSlots + select(1, GetContainerNumFreeSlots(bag))
+		--local freeSlots = 0
+		for bag = 0, NUM_BAG_SLOTS, 1 do
+			--freeSlots = freeSlots + select(1, GetContainerNumFreeSlots(bag))
 			for slot = 1, GetContainerNumSlots(bag), 1 do
 				local itemID = GetContainerItemID(bag, slot)
 				local count = select(2, GetContainerItemInfo(bag, slot))
@@ -70,11 +73,11 @@ function SalvageCrate.onUnitSpellcast(event, unitID, spell, rank, lineID, spellI
 				local key = "" .. tostring(bag) .. ":" .. tostring(slot)
 				local value = "" .. tostring(itemID) .. ":" .. tostring(count)
 
-				bagSnapshot[key] = value
+				scBagSnapshot[key] = value
 			end
 		end
 
-		LA:Debug("    free slots=" .. freeSlots)
+		--LA:Debug("    free slots=" .. freeSlots)
 
 	elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
 
@@ -102,7 +105,7 @@ function SalvageCrate.onUnitSpellcast(event, unitID, spell, rank, lineID, spellI
 		-- reset data
 		currentLineID = nil
 		openEndTime = nil
-		bagSnapshot = {}
+		scBagSnapshot = {}
 
 	end
 end
@@ -135,7 +138,7 @@ function SalvageCrate.onBagUpdate(event, bagID)
 		local newValue = "" .. tostring(newItemID) .. ":" .. tostring(newCount)
 
 		-- compare with snapshot
-		local oldValue = bagSnapshot[key]
+		local oldValue = scBagSnapshot[key]
 		if oldValue ~= newValue then				
 			LA:Debug("    different value for key=" .. key .. ", " .. tostring(oldValue) .. " vs. " .. tostring(newValue))
 
@@ -158,7 +161,7 @@ function SalvageCrate.onBagUpdate(event, bagID)
 				end
 
 
-				if oldItemId ~= newItemID then
+				if oldItemId ~= tostring(newItemID) then
 					LA:Debug("        item on this pos changed: " .. tostring(oldItemId) .. " vs. " .. tostring(newItemID) .. " -> set count to 0")
 					-- old item is gone (e.g. open the last salvage crate on this position) so we also don't want the old count
 					oldCount = 0
