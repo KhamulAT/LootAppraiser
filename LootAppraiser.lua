@@ -251,8 +251,6 @@ function LA:OnInitialize()
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
 	GameTooltip:HookScript("OnTooltipSetItem", OnTooltipSetItem)
-
-	--hooksecurefunc("LootSlot", LA.hook_LootSlot)
 end
 
 
@@ -266,16 +264,8 @@ function LA:OnEnable()
 
 	-- register event for...
 	-- ...loot window open
-	--LA:RegisterEvent("LOOT_OPENED", LA.onLootOpened)
-	--LA:RegisterEvent("LOOT_SLOT_CLEARED", LA.onLootSlotCleared)
-
-	-- ...loot roll
-	--LA:RegisterEvent("START_LOOT_ROLL", LA.onStartLootRoll)
-	--LA:RegisterEvent("LOOT_ITEM_ROLL_WON", LA.onLootItemRollWon)
-
-	-- test
-	LA:RegisterEvent("LOOT_OPENED", LA.testOnLootOpened)
-	LA:RegisterEvent("BAG_UPDATE", LA.testOnBagUpdate)
+	LA:RegisterEvent("LOOT_OPENED", LA.OnLootOpened)
+	LA:RegisterEvent("BAG_UPDATE", LA.OnBagUpdate)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
@@ -292,144 +282,6 @@ function LA:OnDisable()
 	-- nothing to do
 end
 
-
-local currentSavedLoot = {}
-local currentBagSnapshots = {}
-
-
-function LA.testOnBagUpdate(event, bagID)
-	-- is LootAppraiser running?
-	if lootAppraiserDisabled then return end
-	if not LA:isSessionRunning() then return end
-
-	if bagID > NUM_BAG_SLOTS then return end -- we only monitor our char bags
-
-	local bagSnapshot = currentBagSnapshots[bagID]
-	if bagSnapshot == nil then return end
-	--LA:D("  bagSnapshot=" .. tostring(bagSnapshot))
-
-	LA:D("event:testOnBagUpdate with bagID=" .. tostring(bagID))
-
-	for slot = 1, GetContainerNumSlots(bagID), 1 do
-		local currentItemID = GetContainerItemID(bagID, slot)
-		local currentCount = select(2, GetContainerItemInfo(bagID, slot))
-
-		-- prepare key and value
-		local key = tostring(slot)
-		local currentValue = "" .. tostring(currentItemID) .. ":" .. tostring(currentCount)
-
-		local value = bagSnapshot[key]
-		if value ~= currentValue then
-			LA:D("  value at slot " .. tostring(slot) .. " changed from " .. tostring(value) .. " to " .. currentValue)
-
-			-- check against saved loot
-			local data = currentSavedLoot[currentItemID]
-			if data ~= nil then
-				currentSavedLoot[currentItemID] = nil -- remove from saved loot
-
-				local itemLink = data["link"]
-				local quantity = data["quantity"]
-				local itemID = data["itemID"]
-
-				LA:D("    handle item " .. data["link"])
-				LA:handleItemLooted(itemLink, itemID, quantity)
-			else
-				LA:D("    ignore bag update of item " .. tostring(currentItemID))
-			end
-
-			-- set new value
-			bagSnapshot[key] = currentValue
-		end
-	end
-end
-
-
-function LA.testOnLootOpened( ... )
-	-- is LootAppraiser running?
-	if lootAppraiserDisabled then return end
-
-	-- is a loot appraiser session running?
-	if not LA:isSessionRunning() then
-		-- no session -> should we ask for session start?
-		if not startSessionPromptAlreadyAnswerd and not LA:isSurpressSessionStartDialog() then
-			-- save current loot
-			LA:saveCurrentLoot()
-
-			-- and open dialog
-			LA:ShowStartSessionDialog()
-		end
-	else
-		-- pause
-		if pauseStart ~= nil then
-			LA:restartSession()
-		end
-
-		-- clear the table
-		currentSavedLoot = {}
-
-		-- save current loot
-		for i = 1, GetNumLootItems() do
-			local slotType = GetLootSlotType(i)
-
-			if slotType == 1 then
-				-- item looted
-				local itemLink = GetLootSlotLink(i)
-				local itemID = LA:GetItemID(itemLink, true) -- get item id
-
-				local quantity = select(3, GetLootSlotInfo(i))
-
-				local data = {}
-				data["link"] = itemLink
-				data["quantity"] = quantity
-				data["itemID"] = itemID
-
-				-- save data
-				currentSavedLoot[itemID] = data
-
-			elseif slotType == 2 then
-				-- currency looted
-
-				local lootedCoin = select(2, GetLootSlotInfo(i))
-				local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
-
-				--local data = {}
-				--data["currency"] = lootedCopper
-
-				-- save data
-				LA:handleCurrencyLooted(lootedCopper)
-				--currentSavedLoot[tostring(i)] = data
-			end
-		end
-
-		-- save current bag content
-		for bagID = 0, NUM_BAG_SLOTS, 1 do
-			local bagSnapshot = {}
-
-			for slot = 1, GetContainerNumSlots(bagID), 1 do
-				local itemID = GetContainerItemID(bagID, slot)
-				local count = select(2, GetContainerItemInfo(bagID, slot))
-
-				-- prepare key and value
-				local key = tostring(slot)
-				local value = "" .. tostring(itemID) .. ":" .. tostring(count)
-
-				bagSnapshot[key] = value
-			end
-
-			currentBagSnapshots[bagID] = bagSnapshot
-		end
-
-		-- todo: remove
-		LA:D("event:testOnLootOpened")
-		for key, value in pairs(currentSavedLoot) do
-			local data = ""
-			for k,v in pairs(value) do
-				data = data .. k .. "=" .. v .. "; "
-			end
-			LA:D("  key=" .. key .. "; value=" .. data)
-		end
-	end
-end
 
 --[[-------------------------------------------------------------------------------------
 -- init lootappriaser db
@@ -574,19 +426,6 @@ function LA.chatCmdLootAppraiser(input)
 end
 
 
-function LA:join(...)
-	local variables = ""
-	for n=1,select('#',...) do
-		if n > 1 then
-			variables = variables .. "; "
-		end
-		variables = variables .. tostring(select(n,...))
-	end
-
-	return variables
-end
-
-
 --[[-------------------------------------------------------------------------------------
 -- open loot appraiser lite and start a new session
 ---------------------------------------------------------------------------------------]]
@@ -602,115 +441,60 @@ end
 --[[-------------------------------------------------------------------------------------
 -- event handler
 ---------------------------------------------------------------------------------------]]
-local lootRolls = {}
-function LA.onLootItemRollWon(event, link, count, quality, roll)
-	-- is LootAppraiser disabled?
+local currentSavedLoot = {}
+local currentBagSnapshots = {}
+
+
+function LA.OnBagUpdate(event, bagID)
+	-- is LootAppraiser running?
 	if lootAppraiserDisabled then return end
 	if not LA:isSessionRunning() then return end
 
-	LA:D("event:OnLootItemRollWon; link=" .. link)
+	if bagID > NUM_BAG_SLOTS then return end -- we only monitor our char bags
 
-	local savedLootRoll = lootRolls[link]
+	local bagSnapshot = currentBagSnapshots[bagID]
+	if bagSnapshot == nil then return end
+	--LA:D("  bagSnapshot=" .. tostring(bagSnapshot))
 
-	if savedLootRoll ~= nil then
-		LA:D("  saved id=" .. savedLootRoll)
+	LA:D("event:OnBagUpdate with bagID=" .. tostring(bagID))
 
-		lootRolls[link] = nil
+	for slot = 1, GetContainerNumSlots(bagID), 1 do
+		local currentItemID = GetContainerItemID(bagID, slot)
+		local currentCount = select(2, GetContainerItemInfo(bagID, slot))
 
-		local _, itemID = strsplit(":", link)
+		-- prepare key and value
+		local key = tostring(slot)
+		local currentValue = "" .. tostring(currentItemID) .. ":" .. tostring(currentCount)
 
-		LA:D("  itemID=" .. itemID)
+		local value = bagSnapshot[key]
+		if value ~= currentValue then
+			LA:D("  value at slot " .. tostring(slot) .. " changed from " .. tostring(value) .. " to " .. currentValue)
 
-		-- item gewonnen, aber wie erfahren wir nun das es bereits gezählt wurde...
-		local foundAtSlot
-		for slot, data in pairs(savedLoot) do
-			if data["link"] == link then
-				foundAtSlot = slot
-				savedLoot[slot] = nil -- remove to prevent double counting
+			-- check against saved loot
+			local data = currentSavedLoot[currentItemID]
+			if data ~= nil then
+				currentSavedLoot[currentItemID] = nil -- remove from saved loot
+
+				local itemLink = data["link"]
+				local quantity = data["quantity"]
+				local itemID = data["itemID"]
+
+				LA:D("    handle item " .. data["link"])
+				LA:handleItemLooted(itemLink, itemID, quantity)
+			else
+				LA:D("    ignore bag update of item " .. tostring(currentItemID))
 			end
-		end
 
-		if foundAtSlot ~= nil then
-			LA:D("    found in savedLoot: slot=" .. foundAtSlot)
-			LA:handleItemLooted(link, itemID, count)
-		else
-			LA:D("    not found in savedLoot")
+			-- set new value
+			bagSnapshot[key] = currentValue
 		end
 	end
 end
 
 
-function LA.onStartLootRoll(event, id, time)
-	-- is LootAppraiser disabled?
+function LA.OnLootOpened( ... )
+	-- is LootAppraiser running?
 	if lootAppraiserDisabled then return end
-	if not LA:isSessionRunning() then return end
-
-	local link = GetLootRollItemLink(id)
-
-	LA:D("event:OnStartLootRoll; id=" .. tostring(id) .. "; link=" .. link)
-
-	lootRolls[link] = id
-end
-
--- todo: record all items into a table and check against bag update events
-function LA.hook_LootSlot(...)
-	local slot = select(1, ...)
-	LA:D("hook:LootSlot; slot=" .. tostring(slot))
-
-	local link = GetLootSlotLink(slot)
-	if not lootRolls[link] then
-		LA:D("  delegate to LOOT_SLOT_CLEARED")
-
-		LA.onLootSlotCleared("LOOT_SLOT_CLEARED", slot)
-	end
-end
-
-
-function LA.onLootSlotCleared(event, slot)
-	-- is LootAppraiser disabled?
-	if lootAppraiserDisabled then return end
-	if not LA:isSessionRunning() then return end
-
-	LA:Debug("-> loot slot cleared: " .. tostring(slot))
-	LA:D("event:OnLootSlotCleared; slot=" .. tostring(slot))
-
-	local data = savedLoot[tostring(slot)]
-	LA:Debug("-> " .. tostring(data))
-
-	if data ~= nil then
-		savedLoot[tostring(slot)] = nil
-
-		if data["currency"] then
-			LA:Debug("  -> " .. tostring(data["currency"]) .. " copper")
-			LA:D("  type=currency" )
-
-			local lootedCopper = data["currency"]
-
-			LA:handleCurrencyLooted(lootedCopper)
-		else
-			LA:Debug("  -> " .. tostring(data["link"]) .. " x" .. tostring(data["quantity"]))
-			LA:D("  type=item" )
-
-			local itemLink = data["link"]
-			local quantity = data["quantity"]
-			local itemID = data["itemID"]
-
-			LA:handleItemLooted(itemLink, itemID, quantity)
-		end
-		
-		LA:Debug("loot slot cleared with " .. LA:tablelength(savedLoot) .. " items remaining")
-	else
-		LA:D("  no data for slot=" .. tostring(slot) )
-	end
-end
-
-
-local openSavedLoot = {}
-function LA.onLootOpened(event, ...)
-	-- is LootAppraiser disabled?
-	if lootAppraiserDisabled then return end
-
-	LA:D("event:OnLootOpened")
 
 	-- is a loot appraiser session running?
 	if not LA:isSessionRunning() then
@@ -728,22 +512,10 @@ function LA.onLootOpened(event, ...)
 			LA:restartSession()
 		end
 
-		-- Cycle through each looted item --
-		LA:Debug("loot open started")
+		-- clear the table
+		currentSavedLoot = {}
 
-		-- todo: only necessary if in group
-		if LA:tablelength(savedLoot) > 0 then
-			LA:D("  savedLoot from previous round: " .. LA:tablelength(savedLoot) .. " items")
-
-			for slot, data in pairs(savedLoot) do
-				if data["link"] ~= nil then
-					openSavedLoot[data["link"]] = data
-				end
-			end
-		end
-
-		savedLoot = {}
-
+		-- save current loot
 		for i = 1, GetNumLootItems() do
 			local slotType = GetLootSlotType(i)
 
@@ -760,7 +532,7 @@ function LA.onLootOpened(event, ...)
 				data["itemID"] = itemID
 
 				-- save data
-				savedLoot[tostring(i)] = data
+				currentSavedLoot[itemID] = data
 
 			elseif slotType == 2 then
 				-- currency looted
@@ -768,17 +540,42 @@ function LA.onLootOpened(event, ...)
 				local lootedCoin = select(2, GetLootSlotInfo(i))
 				local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
 
-				local data = {}
-				data["currency"] = lootedCopper
+				--local data = {}
+				--data["currency"] = lootedCopper
 
 				-- save data
-				savedLoot[tostring(i)] = data
-
+				LA:handleCurrencyLooted(lootedCopper)
+				--currentSavedLoot[tostring(i)] = data
 			end
 		end
 
-		LA:Debug("loot opened finished with " .. LA:tablelength(savedLoot) .. " items")
-		LA:D("event:OnLootOpened finished; recorded " .. LA:tablelength(savedLoot) .. " items")
+		-- save current bag content
+		for bagID = 0, NUM_BAG_SLOTS, 1 do
+			local bagSnapshot = {}
+
+			for slot = 1, GetContainerNumSlots(bagID), 1 do
+				local itemID = GetContainerItemID(bagID, slot)
+				local count = select(2, GetContainerItemInfo(bagID, slot))
+
+				-- prepare key and value
+				local key = tostring(slot)
+				local value = "" .. tostring(itemID) .. ":" .. tostring(count)
+
+				bagSnapshot[key] = value
+			end
+
+			currentBagSnapshots[bagID] = bagSnapshot
+		end
+
+		-- todo: remove
+		LA:D("event:OnLootOpened")
+		for key, value in pairs(currentSavedLoot) do
+			local data = ""
+			for k,v in pairs(value) do
+				data = data .. k .. "=" .. v .. "; "
+			end
+			LA:D("  key=" .. key .. "; value=" .. data)
+		end
 	end
 end
 
