@@ -20,7 +20,7 @@ local START_SESSION_PROMPT, MAIN_UI, LITE_UI, LAST_NOTEWOTHYITEM_UI
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_ZONE, VALUE_SESSIONDURATION, dataContainer
 local STATUSTEXT
 local GUI_LOOTCOLLECTED, GUI_SCROLLCONTAINER
-local BUTTON_STOPSESSION
+local BUTTON_STOPSESSION, BUTTON_RESETINSTANCES
 
 
 local sessionIsRunning = false 			-- is currently a session running?
@@ -184,24 +184,17 @@ local function OnTooltipSetItem(tooltip, ...)
 		local _, link = tooltip:GetItem()
 
 		local itemID = LA:GetItemID(link)
-		
-		--LA:Debug("  itemId=" .. itemID)
 
 		local data = LA.db.global.drops[itemID]
 		if data then
-			--LA:Debug("  data found for itemID=" .. itemID)
 			tooltip:AddLine("|cFFFFFF00" .. LA.METADATA.NAME .. " - Drop Info|r") -- headline
 			for mapID, count in pairs(data) do
 				local mapName = GetMapNameByID(mapID)
 				if mapName then
 					-- add drop count
 					tooltip:AddDoubleLine("|cFFFFFFFF  " .. mapName .. "|r", "|cFFFFFFFF" .. tostring(count) .. " drop(s)|r")
-
-					--tooltip:AddLine("|cFFFFFFFF  " .. mapName .. "|r")
 				end
 			end
-		else
-			--LA:Debug("  no data found for itemID=" .. itemID)
 		end
 
 		-- calc drop chance
@@ -284,7 +277,7 @@ end
 
 
 --[[-------------------------------------------------------------------------------------
--- init lootappriaser db
+-- init lootappraiser db
 ---------------------------------------------------------------------------------------]]
 function LA:initDB()
 	LA:Debug("LA:initDB()")
@@ -295,79 +288,21 @@ function LA:initDB()
 	dbDefaults = {
 		profile = {
 			enableDebugOutput = false,
-			minimapIcon = {
-				-- minimap icon position and visibility
-				hide = false,
-				minimapPos = 220,
-				radius = 80,
-			},
-			mainUI = {
-				["height"] = 400,
-				["top"] = (parentHeight-50),
-				["left"] = 50,
-				["width"] = 400,
-			},
-			liteUI = {
-				["height"] = 32,
-				["top"] = (parentHeight+20),
-				["left"] = 50,
-				["width"] = 400,
-			},
-			lastNotewothyItemUI = {
-				["height"] = 32,
-				["top"] = (parentHeight-15),
-				["left"] = 50,
-				["width"] = 400,
-			},
-			general = {
-				["qualityFilter"] = "2",
-				["goldAlertThreshold"] = "100",
-				["ignoreRandomEnchants"] = true,
-				["surpressSessionStartDialog"] = false,
-			},
-			pricesource = {
-				["source"] = "DBGlobalMarketAvg",
-			},
-			notification = {
-				["sink"] = {
-					["sink20Sticky"] = false,
-					["sink20OutputSink"] = "Blizzard",
-				},
-				["enableToasts"] = true,
-				["playSoundEnabled"] = true,
-				["soundName"] = "Auction Window Open",
-			},
-			sellTrash = {
-				["tsmGroupEnabled"] = false,
-				["tsmGroup"] = "LootAppraiser`Trash",
-			},
-			blacklist = {
-				["tsmGroupEnabled"] = false,
-				["tsmGroup"] = "LootAppraiser`Blacklist",	
-				["addBlacklistedItems2DestroyTrash"] = false,			
-			},
-			display = {
-				lootedItemListRowCount = 5,
-				showZoneInfo = true,
-				showSessionDuration = true,
-				showLootedItemValue = true,
-				showLootedItemValuePerHour = true,
-				showCurrencyLooted = true,
-				showItemsLooted = true,
-				showNoteworthyItems = true,
-				enableLastNoteworthyItemUI = false,
-				enableLootAppraiserLite = false,
-			},
-			sessionData = {
-				groupBy = "datetime",
-			},
+			-- minimap icon position and visibility
+			minimapIcon = { hide = false, minimapPos = 220, radius = 80, },
+			mainUI = { ["height"] = 400, ["top"] = (parentHeight-50), ["left"] = 50, ["width"] = 400, },
+			liteUI = { ["height"] = 32, ["top"] = (parentHeight+20), ["left"] = 50, ["width"] = 400, },
+			lastNotewothyItemUI = { ["height"] = 32, ["top"] = (parentHeight-15), ["left"] = 50, ["width"] = 400, },
+			general = { ["qualityFilter"] = "2", ["goldAlertThreshold"] = "100", ["ignoreRandomEnchants"] = true, ["surpressSessionStartDialog"] = false, },
+			pricesource = { ["source"] = "DBGlobalMarketAvg", },
+			notification = { ["sink"] = { ["sink20Sticky"] = false, ["sink20OutputSink"] = "Blizzard", }, ["enableToasts"] = true, ["playSoundEnabled"] = true, ["soundName"] = "Auction Window Open", },
+			sellTrash = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Trash", },
+			blacklist = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Blacklist", ["addBlacklistedItems2DestroyTrash"] = false, },
+			display = { lootedItemListRowCount = 5, showZoneInfo = true, showSessionDuration = true, showLootedItemValue = true, showLootedItemValuePerHour = true, showCurrencyLooted = true, showItemsLooted = true, showNoteworthyItems = true, enableLastNoteworthyItemUI = false, enableLootAppraiserLite = false, enableLootAppraiserNativeBlizzardTimer = false, },
+			sessionData = { groupBy = "datetime", },
+			challenge = { },
 		},
-		global = {			
-			sessions = {
-			},
-			drops = {
-			},
-		},
+		global = { sessions = { }, drops = { }, },
 	}
 	
 	-- load the saved db values
@@ -385,6 +320,7 @@ function LA.chatCmdGoldAlertTresholdMonitor()
 
     LA:ShowLastNoteworthyItemWindow()
 end
+
 
 --[[-------------------------------------------------------------------------------------
 -- open loot appraiser and start a new session
@@ -420,8 +356,8 @@ function LA.chatCmdLootAppraiser(input)
 	end
 
 	if input == "debug" then
-		LA:Debug("Debug: enabled")
 		LA.DEBUG = true
+		LA:Debug("Debug: enabled")
 	end
 end
 
@@ -851,7 +787,7 @@ local PaneBackdrop  = {
 	insets = { left = 3, right = 3, top = 5, bottom = 3 }
 }
 
-
+local additionalButtonHeight = 0
 local total = 0
 function LA:ShowMainWindow(showMainUI) 
 	LA:Debug("ShowMainWindow")
@@ -984,6 +920,31 @@ function LA:ShowMainWindow(showMainUI)
 	end
 	MAIN_UI:AddChild(BUTTON_STOPSESSION)
 
+	-- button reset instances --
+	if LA:isDisplayEnabled("showResetInstanceButton") then
+		BUTTON_RESETINSTANCES = AceGUI:Create("Button")
+		BUTTON_RESETINSTANCES:SetAutoWidth(true)
+		BUTTON_RESETINSTANCES:SetText("Reset Instances")
+		BUTTON_RESETINSTANCES:SetCallback("OnClick", 
+			function()
+				LA:onBtnResetInstancesClick()
+			end
+		)
+		MAIN_UI:AddChild(BUTTON_RESETINSTANCES)
+
+		additionalButtonHeight = 25
+	end
+
+	-- adjust height
+	local baseHeight = 112
+
+	local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+	local listHeight = rowCount * 15
+
+	local dataContainerHeight = dataContainer.frame:GetHeight()
+
+	MAIN_UI:SetHeight(baseHeight + listHeight + additionalButtonHeight + dataContainerHeight)
+
 	if showMainUI then
 		MAIN_UI:Show()
 
@@ -1068,7 +1029,16 @@ function LA:prepareDataContainer()
 
 	-- and re-layout
 	MAIN_UI:DoLayout()
-	MAIN_UI:SetHeight(112 + listHeight + dataContainer.frame:GetHeight())
+
+	-- adjust height
+	local baseHeight = 112
+
+	local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+	local listHeight = rowCount * 15
+
+	local dataContainerHeight = dataContainer.frame:GetHeight()
+
+	MAIN_UI:SetHeight(baseHeight + listHeight + additionalButtonHeight + dataContainerHeight)
 end
 
 
@@ -1398,23 +1368,19 @@ end
 function LA:onBtnStartSessionClick()
 	LA:Debug("onBtnStartSessionClick")
 
---[[
-	sessionPause = sessionPause + (time() - pauseStart)
-	pauseStart = nil
-
-	-- change start button to stop button
-	BUTTON_STOPSESSION:SetText("Stop")
-	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		LA:onBtnStopSessionClick()
-	end)
-
-	LA:refreshUIs()
-	]]
 	LA:restartSession()
 end
 
 
+--[[------------------------------------------------------------------------
+-- restart session
+-- * add pause to sessionPause
+-- * change button text
+-- * refresh ui
+--------------------------------------------------------------------------]]
 function LA:restartSession()
+	LA:Debug("restartSession")
+	
 	-- calc pause add add to sessionPause
 	sessionPause = sessionPause + (time() - pauseStart)
 	pauseStart = nil
@@ -1431,10 +1397,51 @@ end
 
 
 --[[------------------------------------------------------------------------
--- Event handler for button 'new session'
+-- Event handler for button 'stop session'
 --------------------------------------------------------------------------]]
 function LA:onBtnStopSessionClick()
 	LA:Debug("onBtnStopSessionClick")
+
+	LA:pauseSession()
+
+--[[
+	-- save session
+	if currentSession ~= nil then
+		if currentSession["liv"] and currentSession["liv"] > 0 then
+			LA:Debug("  -> set session end")
+			currentSession["end"] = time()
+			currentSession["totalItemsLooted"] = totalItemLootedCounter
+
+			LA:prepareStatisticGroups()
+		else
+			-- delete current session
+			local sessions = LA.db.global.sessions
+			sessions[currentSessionID] = nil
+		end
+	end
+
+	pauseStart = time()
+
+	-- change stop button to start button
+	BUTTON_STOPSESSION:SetText("(Re)Start")
+	BUTTON_STOPSESSION:SetCallback("OnClick", function()
+		LA:onBtnStartSessionClick()
+	end)
+
+	LA:refreshUIs()
+	]]
+end
+
+
+--[[------------------------------------------------------------------------
+-- pause session
+-- * save session
+-- * pause
+-- * change button text
+-- * refresh ui
+--------------------------------------------------------------------------]]
+function LA:pauseSession()
+	LA:Debug("pauseSession")
 
 	-- save session
 	if currentSession ~= nil then
@@ -1448,11 +1455,8 @@ function LA:onBtnStopSessionClick()
 			-- delete current session
 			local sessions = LA.db.global.sessions
 			sessions[currentSessionID] = nil
-			-- TODO delete currentSession
 		end
 	end
-
-	--sessionIsRunning = false
 
 	pauseStart = time()
 
@@ -1463,41 +1467,20 @@ function LA:onBtnStopSessionClick()
 	end)
 
 	LA:refreshUIs()
-
-	-- reset all values
-	--[[
-	LA:prepareNewSession()
-	currentSession = {}
-
-	totalLootedCurrency = 0   	-- the total looted currency during a session
-	if VALUE_TOTALCURRENCY ~= nil then
-		VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
-	end
-
-	lootedItemCounter = 0			-- counter for looted items
-	totalItemLootedCounter = 0
-	if VALUE_LOOTEDITEMCOUNTER ~= nil then
-		VALUE_LOOTEDITEMCOUNTER:SetText(lootedItemCounter)
-	end
-
-	noteworthyItemCounter = 0		-- counter for noteworthy items
-	if VALUE_NOTEWORTHYITEMCOUNTER ~= nil then
-		VALUE_NOTEWORTHYITEMCOUNTER:SetText(noteworthyItemCounter)
-	end
-
-	if GUI_LOOTCOLLECTED ~= nil then
-		GUI_LOOTCOLLECTED:ReleaseChildren()
-	end
-	lootCollectedLastEntry = nil
-	]]
 end
-
 
 --[[------------------------------------------------------------------------
 -- Event handler for button 'new session'
 --------------------------------------------------------------------------]]
 function LA:onBtnNewSessionClick()
 	LA:Debug("onBtnNewSessionClick")
+
+	LA:NewSession()
+end
+
+
+function LA:NewSession()
+	LA:Debug("NewSession")
 
 	-- save session
 	if currentSession ~= nil then
@@ -1552,7 +1535,6 @@ function LA:onBtnNewSessionClick()
 	end
 end
 
-
 --[[------------------------------------------------------------------------
 -- Event handler for button 'destroy trash'
 --------------------------------------------------------------------------]]
@@ -1590,6 +1572,21 @@ function LA:onBtnDestroyTrashClick()
 
 	if destroyCounter >= 1 then
 		LA:Print("Destroyed " .. destroyCounter .. " item(s).")
+	end
+end
+
+
+--[[------------------------------------------------------------------------
+-- Event handler for button 'reset instances'
+--------------------------------------------------------------------------]]
+function LA:onBtnResetInstancesClick()
+	--local destroyCounter = 0
+	ResetInstances();
+	-- if in a party - send party msg for awareness --
+	local inInstanceGroup = IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+	local inInstanceGroupRealm = IsInGroup(LE_PARTY_CATEGORY_HOME)
+	if inInstanceGroup or inInstanceGroupRealm then 
+		SendChatMessage("Instances have been reset.","PARTY", nil)
 	end
 end
 
@@ -1996,6 +1993,16 @@ function LA:isLootAppraiserLiteEnabled()
 
 	return LA.db.profile.display.enableLootAppraiserLite
 end
+
+--[[
+function LA:isLootAppraiserNativeTimerEnabled()
+	if LA.db.profile.display.enableLootAppraiserNativeTimer == nil then
+		LA.db.profile.display.enableLootAppraiserNativeTimer = dbDefaults.profile.display.enableLootAppraiserNativeTimer
+	end
+
+	return LA.db.profile.display.enableLootAppraiserNativeTimer
+end
+]]
 
 function LA:isLastNoteworthyItemUIEnabled()
 	if LA.db.profile.display.enableLastNoteworthyItemUI == nil then

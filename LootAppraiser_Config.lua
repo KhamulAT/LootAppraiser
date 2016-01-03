@@ -12,11 +12,8 @@ local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
 Config.SESSIONDATA_GROUPBY = {
 	["datetime"] = "Date", 
-	--["char"] = "Character", 
-	--["duration"] = "Duration", 
 	["liv"] = "Looted Item Value", 
 	["livPerHour"] = "LIV per hour", 
-	--["noteworthyItemsCount"] = "Noteworthy Items"
 }
 
 
@@ -90,7 +87,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Ignore random enchants: " .. LA:formatBoolean(value) .. ".")
+									LA:Print("Ignore random enchants: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.general[info[#info]] = value;
 							end,
@@ -104,7 +101,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.general[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Suppress 'Start Session' dialogue: " .. LA:formatBoolean(value) .. ".")
+									LA:Print("Suppress 'Start Session' dialogue: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.general[info[#info]] = value;
 							end,
@@ -177,6 +174,7 @@ local options = {
 						description = {
 							type = "description", 
 							order = 5, 
+							fontSize = "medium",
 							name = "The button sell trash always sells gray items. Here you can add a TSM group to the sell trash function and all items in this group will also sold. Be careful. If your TSM group containts items with value and you click sell trash... all items are gone with the wind... you be warned. Note: TSM uses ` as group seperator.\n", 
 							width = "full", 
 						}, 
@@ -234,6 +232,7 @@ local options = {
 						description = {
 							type = "description",
 							order = 10,
+							fontSize = "medium",
 							name = "The black list is intended for all worthless items. They can not be sold to the vendor and the auction value is only theoretical (like the idols and scarabs from AQ20). Therefore, these objects are ignored in the calculation of the looted itemvalue.\nNote: TSM uses ` as group seperator.",
 							width = "full"
 						},
@@ -257,7 +256,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Add blacklisted items to destroy trash: " .. LA:formatBoolean(value) .. ".")
+									LA:Print("Add blacklisted items to destroy trash: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
@@ -271,7 +270,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.blacklist[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Blacklist items via TSM group: " .. LA:formatBoolean(value) .. ".")
+									LA:Print("Blacklist items via TSM group: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
@@ -338,7 +337,7 @@ local options = {
 							set = function(info, value) 
 								local oldValue = LA.db.profile.notification[info[#info]]
 								if oldValue ~= value then
-									LA:Print("Enable Toasts set: " .. LA:formatBoolean(value) .. ".")
+									LA:Print("Enable Toasts set: " .. Config:formatBoolean(value) .. ".")
 								end
 								LA.db.profile.notification[info[#info]] = value;
 							end,
@@ -367,319 +366,92 @@ local options = {
 						},
 					},
 				},
-				displayOptions = {
-					type = "group",
-					order = 90,
-					name = "Display",
-					hidden = false,
-					--inline = true,
-					get = function(info) 
-						return LA.db.profile.display[info[#info]] 
-					end,
+				displayOptions = { type = "group", order = 90, name = "Display", hidden = false,
+					get = function(info) return LA.db.profile.display[info[#info]] end,
 					set = function(info, value) 
-						LA.db.profile.display[info[#info]] = value
-						LA:prepareDataContainer()
-					end,
+						LA.db.profile.display[info[#info]] = value 
+						LA:prepareDataContainer() end,
 					args = {
-						displayMainUiOptions = {
-							type = "group",
-							order = 10,
-							name = "Main UI",
-							hidden = false,
-							inline = true,
+						displayMainUiOptions = { type = "group", order = 10, name = "Main UI", hidden = false, inline = true,
 							args = {
-								lootedItemListRowCount = {
-									type = "range",
-									order = 5, 
-									name = "Looted Item List: number of rows",
-									desc = "Number of rows in the looted item list",
-									min = 3,
-									max = 10,
-									step = 1,
-									width = "double",
-								},
-								--[[
-								showZoneInfo = {
-									type = "toggle",
-									order = 10,
-									name = "Show Zone Information",
-									desc = "Show Zone Information",
-									width = "double",
-								},
-								]]
-								--[[
-								showSessionDuration = {
-									type = "toggle",
-									order = 20,
-									name = "Show 'Session Duration'",
-									desc = "Show 'Session Duration'",
-									width = "double",
-								},
-								]]
-								showLootedItemValue = {
-									type = "toggle",
-									order = 30,
-									name = "Show 'Looted Item Value'",
-									desc = "Show 'Looted Item Value'",
-									width = "double",
-								},
-								showLootedItemValuePerHour = {
-									type = "toggle",
-									order = 40,
-									name = "Show 'Looted Item Value' Per Hour",
-									desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)",
-									width = "double",
-								},
-								showCurrencyLooted = {
-									type = "toggle",
-									order = 50,
-									name = "Show 'Currency Looted'",
-									desc = "Show 'Currency Looted'",
-									width = "double",
-								},
-								showItemsLooted = {
-									type = "toggle",
-									order = 60,
-									name = "Show 'Items Looted'",
-									desc = "Show 'Items Looted'",
-									width = "double",
-								},
-								showNoteworthyItems = {
-									type = "toggle",
-									order = 70,
-									name = "Show 'Noteworthy Items'",
-									desc = "Show 'Noteworthy Items'",
-									width = "double",
-								},
+								lootedItemListRowCount = { type = "range", order = 5, name = "Looted Item List: number of rows", desc = "Number of rows in the looted item list", min = 3, max = 10, step = 1, width = "double", },
+								showLootedItemValue = { type = "toggle", order = 30, name = "Show 'Looted Item Value'", desc = "Show 'Looted Item Value'", width = "double", },
+								showLootedItemValuePerHour = { type = "toggle", order = 40, name = "Show 'Looted Item Value' Per Hour", desc = "Show 'Looted Item Value' Per Hour (in parentes behind the Looted Item Value)", width = "double", },
+								showCurrencyLooted = { type = "toggle", order = 50, name = "Show 'Currency Looted'", desc = "Show 'Currency Looted'", width = "double", },
+								showItemsLooted = { type = "toggle", order = 60, name = "Show 'Items Looted'", desc = "Show 'Items Looted'", width = "double", },
+								showNoteworthyItems = { type = "toggle", order = 70, name = "Show 'Noteworthy Items'", desc = "Show 'Noteworthy Items'", width = "double", },
+								showResetInstanceButton = { type = "toggle", order = 80, name = "Show 'Reset Instance' Button (/reload necessary)", desc = "Show 'Reset Instance' Button", width = "double", set = function(info, value) LA.db.profile.display[info[#info]] = value end, },
 							},
 							plugins = {},
 						},
-						displayLastNoteworthyItemOptions = {
-							type = "group",
-							order = 20,
-							name = "Last Noteworthy Item UI",
-							hidden = false,
-							inline = true,
-							args = {
-								enableLastNoteworthyItemUI = {
-									type = "toggle",
-									order = 10,
-									name = "Enable 'Last Noteworthy Item' UI",
-									desc = "Enables the 'Last Noteworthy Item' UI",
-									width = "double",
-								},
-							},
+						displayLastNoteworthyItemOptions = { type = "group", order = 20, name = "Last Noteworthy Item UI", hidden = false, inline = true,
+							args = { enableLastNoteworthyItemUI = { type = "toggle", order = 10, name = "Enable 'Last Noteworthy Item' UI", desc = "Enables the 'Last Noteworthy Item' UI", width = "double", }, },
 							plugins = {},
 						},
-						displayLootAppraiserLiteOptions = {
-							type = "group",
-							order = 30,
-							name = "Loot Appraiser Lite UI",
-							hidden = false,
-							inline = true,
-							args = {
-								enableLootAppraiserLite = {
-									type = "toggle",
-									order = 10,
-									name = "Enable 'Loot Appraiser Lite' UI",
-									desc = "Enables the 'Loot Appraiser Lite' UI which shows the looted item value.",
-									width = "double",
-								},
-							},
+						displayLootAppraiserLiteOptions = { type = "group", order = 30, name = "Loot Appraiser Lite UI", hidden = false, inline = true,
+							args = { enableLootAppraiserLite = { type = "toggle", order = 10, name = "Enable 'Loot Appraiser Lite' UI", desc = "Enables the 'Loot Appraiser Lite' UI which shows the looted item value.", width = "double", }, },
 							plugins = {},
 						},
-						displayTooltipOptions = {
+						--[[
+						displayLootAppraiserNativeTimerOptions = {
 							type = "group",
 							order = 40,
-							name = "Tooltip",
-							hidden = true,
+							name = "Blizard Native Timer",
+							hidden = false,
 							inline = true,
 							args = {
+								enableLootAppraiserNativeTimer = {
+									type = "toggle",
+									order = 10,
+									name = "Enable 'Blizzard Native Timer' UI",
+									desc = "Enables the 'Blizzard Native Timer' interface.",
+									width = "double",
+								},
 							},
+							plugins = {},
+						},
+						]]
+						displayTooltipOptions = { type = "group", order = 40, name = "Tooltip", hidden = true, inline = true,
+							args = {},
 							plugins = {},
 						},
 					},
 					plugins = {},
 				},
-				aboutGroup = {
-					type = "group", 
-					order = 100, 
-					name = "About",
+				aboutGroup = { type = "group", order = 100, name = "About",
 					args = {
-						generalText = {
-							type = "description", 
-							order = 10, 
-							fontSize = "medium",
-							--name = "Thank you for downloading and installing LootAppraiser!\n\nUsage:  Left-Click on the mini-map icon to load the Main user interface.  If you want to load them manually type: /lah for help details.\n\nFAQ:\nWhy is pricing reporting incorrectly or only reporting vendor pricing?\nLootAppraiser leverages pricing through TradeSkillMaster's API. Ensure you have ALL the TradeSkillMaster modules installed by going to TradeSkillMaster.com.  This includes installing the TSM Desktop Application which will keep your pricing current. LootAppraiser does nothing with pricing algoritms and only reports pricing that it is aware of so if your pricing is incorrect, check your addon configurations for pricing.\n\nDoes LootAppraiser work with Auctioneer or Auctionator?\nNo. LootAppraiser specifically leverages TSM API functions for pricing.\n\nWhat do I do if I have a suggestion or want to report a bug?\nAny bug, defect, or enhancement requests can be posted at curse forge: http://wow.curseforge.com/addons/lootappraiser/tickets/ \n\nHappy gaming and Happy earning!", 
-							name = "LootAppraiser is an addon which determines an item's value when looted based upon a pricing source you select. It keeps track of all gold asset value of the items in total including a quality item filter. Perfect for farming and determining gold asset value or potential gold-per-hour.\n\nThe reason Profitz developed this addon was because while proving out some gold earnings via farming, he was using spreadsheets for post-run calculations on item values and pricing models. Now, we all can just run this addon, select the price source we want and let it calculate it for us!\n\nPlease understand, this addon does NOT determine liquid gold you are guaranteed to make but rather, potential ‘asset’ values of items looted where you will have to do the work and sell it on the Auction House, trade chat, etc.\n",
-							width = "full", 
-						}, 
-						generalText15 = {
-							type = "description", 
-							order = 15, 
-							fontSize = "medium",
-							name = "EMail:",
-							width = "half", 
-						}, 
-						generalText16 = {
-							type = "description", 
-							order = 16, 
-							fontSize = "medium",
-							name = "lootappraiser@gmail.com",
-							width = "double", 
-						}, 
-						generalText20 = {
-							type = "description", 
-							order = 20, 
-							fontSize = "medium",
-							name = "\nAuthor/Designer/Developer: Profitz",
-							width = "full", 
-						}, 
-						generalText26 = {
-							type = "description", 
-							order = 26, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						generalText30 = {
-							type = "description", 
-							order = 30, 
-							fontSize = "medium",
-							name = "Twitter:",
-							width = "half", 
-						}, 
-						generalText35 = {
-							type = "description", 
-							order = 35, 
-							fontSize = "medium",
-							name = "@WowProfitz (https://twitter.com/WowProfitz)",
-							width = "double", 
-						}, 
-						generalText36 = {
-							type = "description", 
-							order = 36, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						generalText40 = {
-							type = "description", 
-							order = 40, 
-							fontSize = "medium",
-							name = "Twitch:",
-							width = "half", 
-						}, 
-						generalText45 = {
-							type = "description", 
-							order = 45, 
-							fontSize = "medium",
-							name = "ProfitzTV (http://www.twitch.tv/profitztv)",
-							width = "double", 
-						}, 
-						generalText46 = {
-							type = "description", 
-							order = 46, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						generalText50 = {
-							type = "description", 
-							order = 50, 
-							fontSize = "medium",
-							name = "EMail:",
-							width = "half", 
-						}, 
-						generalText55 = {
-							type = "description", 
-							order = 55, 
-							fontSize = "medium",
-							name = "WowProfitz@Gmail.com",
-							width = "double", 
-						}, 
-						generalText60 = {
-							type = "description", 
-							order = 60, 
-							fontSize = "medium",
-							name = "\nCo-Author/Lead Developer/Designer:  Testerle",
-							width = "full", 
-						}, 
-						generalText66 = {
-							type = "description", 
-							order = 66, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						generalText70 = {
-							type = "description", 
-							order = 70, 
-							fontSize = "medium",
-							name = "Twitter:",
-							width = "half", 
-						}, 
-						generalText75 = {
-							type = "description", 
-							order = 75, 
-							fontSize = "medium",
-							name = "@Testerle (https://twitter.com/Testerle)",
-							width = "double", 
-						}, 
-						generalText80 = {
-							type = "description", 
-							order = 80, 
-							fontSize = "medium",
-							name = "\nContributor(s)/Developer: Munglunch\n\nEarly Adopters/Beta Testers:",
-							width = "full", 
-						}, 
-						generalText86 = {
-							type = "description", 
-							order = 86, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						generalText100 = {
-							type = "description", 
-							order = 100, 
-							fontSize = "medium",
-							name = "ACubed10\nBrozerian\nConzec89\nDecepticon2012\nDozerBob\nFatherfajita\nGoblinRaset\nJuniorDeBoss\nMorricade\nPhatLewts\nSelltacular",
-							width = "full", 
-						}, 
-						generalText110 = {
-							type = "description", 
-							order = 110, 
-							fontSize = "small",
-							name = "",
-							width = "full", 
-						}, 
-						enableDebugOutput = {
-							type = "toggle",
-							order = 120,
-							name = "Enable debug output",
-							desc = "Enable debug output",
-							width = "full",
-						},
+						generalText = { type = "description", order = 10, fontSize = "medium",name = "LootAppraiser is an addon which determines an item's value when looted based upon a pricing source you select. It keeps track of all gold asset value of the items in total including a quality item filter. Perfect for farming and determining gold asset value or potential gold-per-hour.\n\nThe reason Profitz developed this addon was because while proving out some gold earnings via farming, he was using spreadsheets for post-run calculations on item values and pricing models. Now, we all can just run this addon, select the price source we want and let it calculate it for us!\n\nPlease understand, this addon does NOT determine liquid gold you are guaranteed to make but rather, potential ‘asset’ values of items looted where you will have to do the work and sell it on the Auction House, trade chat, etc.\n",width = "full", }, 
+						generalText15 = { type = "description", order = 15, fontSize = "medium",name = "EMail:",width = "half", }, 
+						generalText16 = { type = "description", order = 16, fontSize = "medium",name = "lootappraiser@gmail.com",width = "double", }, 
+						generalText20 = { type = "description", order = 20, fontSize = "medium", name = "\nAuthor/Designer/Developer: Profitz", width = "full", }, 
+						generalText26 = { type = "description", order = 26, fontSize = "small", name = "", width = "full", }, 
+						generalText30 = { type = "description", order = 30, fontSize = "medium", name = "Twitter:", width = "half", }, 
+						generalText35 = { type = "description", order = 35, fontSize = "medium", name = "@WowProfitz (https://twitter.com/WowProfitz)", width = "double", }, 
+						generalText36 = { type = "description", order = 36, fontSize = "small", name = "", width = "full", }, 
+						generalText40 = { type = "description", order = 40, fontSize = "medium", name = "Twitch:", width = "half", }, 
+						generalText45 = { type = "description", order = 45, fontSize = "medium", name = "ProfitzTV (http://www.twitch.tv/profitztv)", width = "double", }, 
+						generalText46 = { type = "description", order = 46, fontSize = "small", name = "", width = "full", }, 
+						generalText50 = { type = "description", order = 50, fontSize = "medium", name = "EMail:", width = "half", }, 
+						generalText55 = { type = "description", order = 55, fontSize = "medium", name = "WowProfitz@Gmail.com", width = "double", }, 
+						generalText60 = { type = "description", order = 60, fontSize = "medium", name = "\nCo-Author/Lead Developer/Designer:  Testerle", width = "full", }, 
+						generalText66 = { type = "description", order = 66, fontSize = "small",name = "",width = "full", }, 
+						generalText70 = { type = "description", order = 70, fontSize = "medium", name = "Twitter:", width = "half", }, 
+						generalText75 = { type = "description", order = 75, fontSize = "medium", name = "@Testerle (https://twitter.com/Testerle)", width = "double", }, 
+						generalText80 = { type = "description", order = 80, fontSize = "medium", name = "\nContributor(s)/Developer: Munglunch\n\nEarly Adopters/Beta Testers:", width = "full", }, 
+						generalText86 = { type = "description", order = 86, fontSize = "small", name = "", width = "full", }, 
+						generalText100 = { type = "description", order = 100, fontSize = "medium", name = "ACubed10\nBrozerian\nConzec89\nDecepticon2012\nDozerBob\nFatherfajita\nGoblinRaset\nJuniorDeBoss\nMorricade\nPhatLewts\nSelltacular", width = "full", }, 
+						generalText110 = { type = "description", order = 110, fontSize = "small",name = "",width = "full", }, 
+						enableDebugOutput = { type = "toggle",order = 120,name = "Enable debug output",desc = "Enable debug output",width = "full", },
 					}, 
 				},
 			}, 
 		},	
-		statistic = {
-			type = "group", 
-			name = LootAppraiser .. " Statistic", 
-			get = function(info) 
-				return LA.db.profile[info[#info]] 
-			end,
-			set = function(info, value) 
-				LA.db.profile[info[#info]] = value; 
-			end,
-			childGroups = "select",
-			inline = true,
+		statistic = { type = "group", name = LootAppraiser .. " Statistic", get = function(info) return LA.db.profile[info[#info]] end, set = function(info, value) LA.db.profile[info[#info]] = value; end, childGroups = "select", inline = true,
 			args = {},
 		},
 	}, 
 }
+
 
 --[[-------------------------------------------------------------------------------------
 -- AceAddon-3.0 - module standard methods
@@ -707,7 +479,6 @@ function Config:OnInitialize()
 	lootAppraiserConfig.default = Config.resetDB
 
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
-
 	LA:prepareStatisticGroups() -- prepare statistic groups
 
 	--testFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Test", "Test", LootAppraiser) -- test
@@ -717,6 +488,14 @@ function Config:OnInitialize()
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.order = 200
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.inline = true
 	options.args.general.args.notificationOptionsGrp.args.notificationLibSink.name = ""
+end
+
+
+function Config:OnEnable()
+end
+
+
+function Config:OnDisable()
 end
 
 
@@ -888,16 +667,6 @@ function Config.onGroupSelected(widget, event, value)
 end
 
 
-function Config:OnEnable()
-
-end
-
-
-function Config:OnDisable()
-
-end
-
-
 function Config:getOrCreateZoneGrp(groups, session, order)
 	-- group name and ID
 	local sessionMapID = session["mapID"]
@@ -1045,7 +814,7 @@ end
 -- prepare statistic groups
 ---------------------------------------------------------------------------------------]]
 function Config:getStatisticGroups()
-	LA:Debug("  getStatisticGroups")
+	LA:Debug("Config:getStatisticGroups")
 
 	local groups = {}
 
