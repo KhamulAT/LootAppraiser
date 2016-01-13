@@ -6,6 +6,9 @@ local AceGUI = LibStub("AceGUI-3.0")
 local LibToast = LibStub("LibToast-1.0")
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
+-- Lua APIs
+local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type = tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type
+
 LA.DEBUG = false
 
 LA.METADATA = {
@@ -15,7 +18,9 @@ LA.METADATA = {
 
 -- GUI related local vars
 -- frames
-local START_SESSION_PROMPT, MAIN_UI, LITE_UI, LAST_NOTEWOTHYITEM_UI
+local START_SESSION_PROMPT, MAIN_UI, LITE_UI, LAST_NOTEWOTHYITEM_UI, TIMER_UI
+local TIMER_UI_TAB, b1
+
 -- single elements
 local VALUE_TOTALCURRENCY, VALUE_LOOTEDITEMVALUE, VALUE_LOOTEDITEMCOUNTER, VALUE_NOTEWORTHYITEMCOUNTER, VALUE_ZONE, VALUE_SESSIONDURATION, dataContainer
 local STATUSTEXT
@@ -112,70 +117,6 @@ LibToast:Register(LootAppraiser,
 
 
 --[[-------------------------------------------------------------------------------------
--- prepare minimap icon
----------------------------------------------------------------------------------------]]
-local _laLDB = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
-	type = "launcher",
-	text = "Loot Appraiser", -- for what?
-	icon = "Interface\\Icons\\Ability_Racial_PackHobgoblin",
-	OnClick = function(self, button, down)
-		if button == "LeftButton" then
-			if not LA:isSessionRunning() then
-		        LA:StartSession(true)        
-		    end
-
-		    LA:ShowMainWindow(true)
-		elseif button == "RightButton" then
-			LA:Print("Open LootAppraiser Configuration")
-
-			InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
-			InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
-		end
-	end,
-	OnTooltipShow = function (tooltip)
-		LA:miniMapIconOnTooltipShow(tooltip)
-	end
-})
-local _icon = LibStub("LibDBIcon-1.0")
-
-function LA:miniMapIconOnTooltipShow(tooltip)
-	tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
-	tooltip:AddLine("|cFFFFFFCCLeft-Click|r to open the main window")
-	tooltip:AddLine("|cFFFFFFCCRight-Click|r to open options window")
-	tooltip:AddLine("|cFFFFFFCCDrag|r to move this button")
-	tooltip:AddLine(" ") -- spacer
-
-	if LA:isSessionRunning() then
-		local offset
-		if pauseStart ~= nil then
-			offset = pauseStart -- session is paused
-		else
-			offset = time() -- session is running
-		end
-
-		local delta = offset - currentSession["start"] - sessionPause
-
-		-- don't show seconds
-		local noSeconds = false
-		if delta > 3600 then
-			noSeconds = true
-		end
-
-		local text = "Session is "
-		if pauseStart ~= nil then
-			text = text .. "paused: "
-		else
-			text = text .. "running: "
-		end
-
-		tooltip:AddDoubleLine(text, SecondsToTime(delta, noSeconds, false))
-	else
-		tooltip:AddLine("Session is not running")
-	end
-end
-
-
---[[-------------------------------------------------------------------------------------
 -- hook for add lines to item tooltip
 ---------------------------------------------------------------------------------------]]
 local lineAdded = false
@@ -238,8 +179,63 @@ function LA:OnInitialize()
 
 	LA:SetSinkStorage(LA.db.profile.notification.sink)
 
-	-- minimap icon --
-	_icon:Register(LA.METADATA.NAME, _laLDB, LA.db.profile.minimapIcon)
+	-- prepare minimap icon --
+	LA.LibDBIcon = LibStub("LibDBIcon-1.0")
+	LA.LibDataBroker = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
+		type = "launcher",
+		text = "Loot Appraiser", -- for what?
+		icon = "Interface\\Icons\\Ability_Racial_PackHobgoblin",
+		OnClick = function(self, button, down)
+			if button == "LeftButton" then
+				if not LA:isSessionRunning() then
+			        LA:StartSession(true)        
+			    end
+
+			    LA:ShowMainWindow(true)
+			elseif button == "RightButton" then
+				LA:Print("Open LootAppraiser Configuration")
+
+				InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
+				InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
+			end
+		end,
+		OnTooltipShow = function (tooltip)
+			tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
+			tooltip:AddLine("|cFFFFFFCCLeft-Click|r to open the main window")
+			tooltip:AddLine("|cFFFFFFCCRight-Click|r to open options window")
+			tooltip:AddLine("|cFFFFFFCCDrag|r to move this button")
+			tooltip:AddLine(" ") -- spacer
+
+			if LA:isSessionRunning() then
+				local offset
+				if pauseStart ~= nil then
+					offset = pauseStart -- session is paused
+				else
+					offset = time() -- session is running
+				end
+
+				local delta = offset - currentSession["start"] - sessionPause
+
+				-- don't show seconds
+				local noSeconds = false
+				if delta > 3600 then
+					noSeconds = true
+				end
+
+				local text = "Session is "
+				if pauseStart ~= nil then
+					text = text .. "paused: "
+				else
+					text = text .. "running: "
+				end
+
+				tooltip:AddDoubleLine(text, SecondsToTime(delta, noSeconds, false))
+			else
+				tooltip:AddLine("Session is not running")
+			end
+		end
+	})
+	LA.LibDBIcon:Register(LA.METADATA.NAME, LA.LibDataBroker, LA.db.profile.minimapIcon)
 
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
@@ -254,6 +250,9 @@ function LA:OnEnable()
 	LA:RegisterChatCommand("la", LA.chatCmdLootAppraiser)
 	LA:RegisterChatCommand("lal", LA.chatCmdLootAppraiserLite)
 	LA:RegisterChatCommand("laa", LA.chatCmdGoldAlertTresholdMonitor)
+
+	--LA:RegisterChatCommand("las", function() LibStub("AceConfigDialog-3.0"):Open("LootAppraiser Statistic") end)
+	--LA:RegisterChatCommand("lac", function() LibStub("AceConfigDialog-3.0"):Open("LootAppraiser Challenge") end)
 
 	-- register event for...
 	-- ...loot window open
@@ -291,6 +290,8 @@ function LA:initDB()
 			-- minimap icon position and visibility
 			minimapIcon = { hide = false, minimapPos = 220, radius = 80, },
 			mainUI = { ["height"] = 400, ["top"] = (parentHeight-50), ["left"] = 50, ["width"] = 400, },
+			timerUI = { ["height"] = 32, ["top"] = (parentHeight+55), ["left"] = 50, ["width"] = 400, },
+			challengeUI = { ["height"] = 400, ["top"] = (parentHeight-50), ["left"] = 50, ["width"] = 400, },
 			liteUI = { ["height"] = 32, ["top"] = (parentHeight+20), ["left"] = 50, ["width"] = 400, },
 			lastNotewothyItemUI = { ["height"] = 32, ["top"] = (parentHeight-15), ["left"] = 50, ["width"] = 400, },
 			general = { ["qualityFilter"] = "2", ["goldAlertThreshold"] = "100", ["ignoreRandomEnchants"] = true, ["surpressSessionStartDialog"] = false, },
@@ -298,7 +299,7 @@ function LA:initDB()
 			notification = { ["sink"] = { ["sink20Sticky"] = false, ["sink20OutputSink"] = "Blizzard", }, ["enableToasts"] = true, ["playSoundEnabled"] = true, ["soundName"] = "Auction Window Open", },
 			sellTrash = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Trash", },
 			blacklist = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Blacklist", ["addBlacklistedItems2DestroyTrash"] = false, },
-			display = { lootedItemListRowCount = 5, showZoneInfo = true, showSessionDuration = true, showLootedItemValue = true, showLootedItemValuePerHour = true, showCurrencyLooted = true, showItemsLooted = true, showNoteworthyItems = true, enableLastNoteworthyItemUI = false, enableLootAppraiserLite = false, enableLootAppraiserNativeBlizzardTimer = false, },
+			display = { lootedItemListRowCount = 5, showZoneInfo = true, showSessionDuration = true, showLootedItemValue = true, showLootedItemValuePerHour = true, showCurrencyLooted = true, showItemsLooted = true, showNoteworthyItems = true, enableLastNoteworthyItemUI = false, enableLootAppraiserLite = false, enableLootAppraiserTimerUI = false, },
 			sessionData = { groupBy = "datetime", },
 			challenge = { },
 		},
@@ -745,12 +746,13 @@ function LA:ShowLastNoteworthyItemWindow()
 	LAST_NOTEWOTHYITEM_UI:Hide()
 	LAST_NOTEWOTHYITEM_UI:SetStatusTable(LA.db.profile.lastNotewothyItemUI)
 	LAST_NOTEWOTHYITEM_UI:SetWidth(350)
-	LAST_NOTEWOTHYITEM_UI:SetHeight(32)
+	LAST_NOTEWOTHYITEM_UI:SetHeight(30)
 
 	LAST_NOTEWOTHYITEM_UI:SetTitle("Gold Alert Threshold")
 
 	LAST_NOTEWOTHYITEM_UI:Show()
 end
+
 
 --[[-------------------------------------------------------------------------------------
 -- the lite ui
@@ -767,13 +769,110 @@ function LA:ShowLiteWindow()
 	LITE_UI:Hide()
 	LITE_UI:SetStatusTable(LA.db.profile.liteUI)
 	LITE_UI:SetWidth(150)
-	LITE_UI:SetHeight(32)
+	LITE_UI:SetHeight(30)
 	--LITE_UI:EnableResize(false)
 
 	local totalItemValue = currentSession["liv"] or 0
 	LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
 
 	LITE_UI:Show()
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- the timer ui
+---------------------------------------------------------------------------------------]]
+function LA:ShowTimerWindow()
+	LA:Debug("ShowTimerWindow")
+
+	if TIMER_UI then
+		TIMER_UI:Show()
+		return 
+	end
+
+	TIMER_UI = AceGUI:Create("LALiteWindow")
+	TIMER_UI:Hide()
+
+	TIMER_UI:SetTitle("|cffffffff" .. date("!%X", 0) .. "|r")
+	TIMER_UI:SetStatusTable(LA.db.profile.timerUI)
+	TIMER_UI:SetWidth(110)
+	TIMER_UI:SetHeight(30)
+
+	-- tab --
+	TIMER_UI_TAB = CreateFrame("Frame", nil, TIMER_UI.frame)
+	TIMER_UI_TAB.prevMouseIsOver = false
+	TIMER_UI_TAB:SetSize(104, 47)
+	TIMER_UI_TAB:SetPoint("BOTTOMLEFT", TIMER_UI.frame, "BOTTOMLEFT", 3, 3)
+	TIMER_UI_TAB:SetScript("OnUpdate", 
+		function(self)
+			if ( self.prevMouseIsOver ) then
+				if ( not self:IsMouseOver() ) then
+					UIFrameFadeOut(TIMER_UI_TAB, CHAT_FRAME_FADE_TIME)
+					self.prevMouseIsOver = false
+				end
+			else
+				if ( self:IsMouseOver() ) then
+					UIFrameFadeIn(TIMER_UI_TAB, CHAT_FRAME_FADE_TIME)
+					self.prevMouseIsOver = true
+				end
+			end
+		end
+	)
+	UIFrameFadeOut(TIMER_UI_TAB, CHAT_FRAME_FADE_TIME);
+
+	local l1 = TIMER_UI_TAB:CreateTexture(nil, "BACKGROUND")
+	l1:SetTexture([[Interface\ChatFrame\ChatFrameTab]])
+	l1:SetSize(7, 24)
+	l1:SetPoint("TOPLEFT", TIMER_UI_TAB, "TOPLEFT", 26, 0)
+	l1:SetTexCoord(0.03125, 0.140625, 0.28125, 1.0)
+
+	local l2 = TIMER_UI_TAB:CreateTexture(nil, "BACKGROUND")
+	l2:SetTexture([[Interface\ChatFrame\ChatFrameTab]])
+	l2:SetSize(31, 24)
+	l2:SetPoint("LEFT", l1, "RIGHT")
+	l2:SetTexCoord(0.140625, 0.859375, 0.28125, 1.0)
+
+	local l3 = TIMER_UI_TAB:CreateTexture(nil, "BACKGROUND")
+	l3:SetTexture([[Interface\ChatFrame\ChatFrameTab]])
+	l3:SetSize(7, 24)
+	l3:SetPoint("LEFT", l2, "RIGHT")
+	l3:SetTexCoord(0.859375, 0.96875, 0.28125, 1.0)
+
+	b1 = CreateFrame("Button", nil, TIMER_UI_TAB)
+	b1:SetSize(20, 20)
+	if pauseStart ~= nil then
+		b1:SetNormalTexture([[Interface\Buttons\UI-SpellbookIcon-NextPage-Up]])
+	else
+		b1:SetNormalTexture([[Interface\TimeManager\PauseButton]])
+	end
+	b1:SetHighlightTexture([[Interface\Buttons\UI-Common-MouseHilight]], "ADD")
+	b1:SetPoint("BOTTOMLEFT", l1, "BOTTOMLEFT", 4, 1)
+	b1:SetScript("OnClick",
+		function (self)
+			--LA:D("  b1")
+			if pauseStart ~= nil then
+				b1:SetNormalTexture([[Interface\Buttons\UI-SpellbookIcon-NextPage-Up]])
+				LA:onBtnStartSessionClick()
+			else
+				b1:SetNormalTexture([[Interface\TimeManager\PauseButton]])
+				LA:onBtnStopSessionClick()
+			end
+		end
+	)
+
+	local b2 = CreateFrame("Button", nil, TIMER_UI_TAB)
+	b2:SetSize(20, 20)
+	b2:SetNormalTexture([[Interface\TimeManager\ResetButton]])
+	b2:SetHighlightTexture([[Interface\Buttons\UI-Common-MouseHilight]], "ADD")
+	b2:SetPoint("LEFT", b1, "RIGHT", -2, 0)
+	b2:SetScript("OnClick",
+		function (self)
+			--LA:D("  b2")
+			LA:onBtnNewSessionClick()
+		end
+	)
+
+	TIMER_UI:Show()	
 end
 
 
@@ -798,9 +897,15 @@ function LA:ShowMainWindow(showMainUI)
 		if LA:isLootAppraiserLiteEnabled() then
 			LA:ShowLiteWindow()
 		end
+
 		if LA:isLastNoteworthyItemUIEnabled() then
 			LA:ShowLastNoteworthyItemWindow()
 		end
+
+		if LA:isLootAppraiserTimerUIEnabled() then
+			LA:ShowTimerWindow()
+		end
+
 		return
 	end 
 
@@ -821,8 +926,8 @@ function LA:ShowMainWindow(showMainUI)
 		end
 	)
 	MAIN_UI:SetCallback("OnClose",
-		function()
-			LA:Debug("Session ended")
+		function(widget, event)
+			--LA:Debug("Session ended")
 		end
 	)
 
@@ -913,7 +1018,7 @@ function LA:ShowMainWindow(showMainUI)
 			LA:onBtnStopSessionClick()
 		end)
 	else 
-		BUTTON_STOPSESSION:SetText("Start")
+		BUTTON_STOPSESSION:SetText("(Re)Start")
 		BUTTON_STOPSESSION:SetCallback("OnClick", function()
 			LA:onBtnStartSessionClick()
 		end)
@@ -951,8 +1056,13 @@ function LA:ShowMainWindow(showMainUI)
 		if LA:isLootAppraiserLiteEnabled() then
 			LA:ShowLiteWindow()
 		end
+
 		if LA:isLastNoteworthyItemUIEnabled() then
 			LA:ShowLastNoteworthyItemWindow()
+		end
+
+		if LA:isLootAppraiserTimerUIEnabled() then
+			LA:ShowTimerWindow()
 		end
 	end
 end
@@ -994,18 +1104,18 @@ function LA:prepareDataContainer()
 	local currentMapID = GetCurrentMapAreaID()
 	local zoneInfo = GetMapNameByID(currentMapID)
 	
-	VALUE_ZONE = AceGUI:Create("Label")
-	VALUE_ZONE.label:SetWordWrap(false)
+	VALUE_ZONE = AceGUI:Create("LALabel")
+	VALUE_ZONE:SetWordWrap(false)
 	VALUE_ZONE:SetText(zoneInfo)
 	VALUE_ZONE:SetWidth(labelWidth) -- TODO
-	VALUE_ZONE.label:SetJustifyH("LEFT")
+	VALUE_ZONE:SetJustifyH("LEFT")
 	grp:AddChild(VALUE_ZONE)
 
 	-- ...and session duration
-    VALUE_SESSIONDURATION = AceGUI:Create("Label")
+    VALUE_SESSIONDURATION = AceGUI:Create("LALabel")
 	VALUE_SESSIONDURATION:SetText("not running")
 	VALUE_SESSIONDURATION:SetWidth(valueWidth) -- TODO
-	VALUE_SESSIONDURATION.label:SetJustifyH("RIGHT")
+	VALUE_SESSIONDURATION:SetJustifyH("RIGHT")
 	grp:AddChild(VALUE_SESSIONDURATION)
 
 	-- ...looted item value (with liv/h)
@@ -1062,17 +1172,17 @@ function LA:defineRowForFrame(frame, id, name, value)
 	frame:AddChild(grp)
 
 	-- add label...
-	local label = AceGUI:Create("Label")
+	local label = AceGUI:Create("LALabel")
 	label:SetText(name)
 	label:SetWidth(labelWidth) -- TODO
-	label.label:SetJustifyH("LEFT")
+	label:SetJustifyH("LEFT")
 	grp:AddChild(label)
 
 	-- ...and value
-	local VALUE = AceGUI:Create("Label")
+	local VALUE = AceGUI:Create("LALabel")
 	VALUE:SetText(value)
 	VALUE:SetWidth(valueWidth) -- TODO
-	VALUE.label:SetJustifyH("RIGHT")
+	VALUE:SetJustifyH("RIGHT")
 	grp:AddChild(VALUE)
 
 	return VALUE
@@ -1106,15 +1216,33 @@ function LA:refreshUIs()
 		if pauseStart ~= nil then 
 			if time() % 2 == 0 then
 				VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
+				--VALUE_SESSIONDURATION:SetText(" " .. date("!%X", delta))
 			else
 				VALUE_SESSIONDURATION:SetText(" ")
 			end
 		else
 			VALUE_SESSIONDURATION:SetText(" " .. SecondsToTime(delta, noSeconds, false))
 		end
+
+		-- timer ui
+		if TIMER_UI then
+			if pauseStart ~= nil then 
+				if time() % 2 == 0 then
+					TIMER_UI:SetTitle("|cffffffff" .. date("!%X", delta) .. "|r")
+				else
+					TIMER_UI:SetTitle(" ")
+				end
+			else
+				TIMER_UI:SetTitle("|cffffffff" .. date("!%X", delta) .. "|r")
+			end
+		end
 	else
 		--tooltip:AddLine("Session is not running")
 		VALUE_SESSIONDURATION:SetText("not running")
+
+		if TIMER_UI then
+			TIMER_UI:SetTitle("|cffffffff" .. date("!%X", 0) .. "|r")
+		end
 	end
 
 	-- zone info
@@ -1391,6 +1519,13 @@ function LA:restartSession()
 		LA:onBtnStopSessionClick()
 	end)
 
+	if b1 then
+		b1:SetNormalTexture([[Interface\TimeManager\PauseButton]])
+		b1:SetScript("OnClick", function()
+			LA:onBtnStopSessionClick()
+		end)
+	end
+
 	-- ui refresh
 	LA:refreshUIs()
 end
@@ -1403,33 +1538,6 @@ function LA:onBtnStopSessionClick()
 	LA:Debug("onBtnStopSessionClick")
 
 	LA:pauseSession()
-
---[[
-	-- save session
-	if currentSession ~= nil then
-		if currentSession["liv"] and currentSession["liv"] > 0 then
-			LA:Debug("  -> set session end")
-			currentSession["end"] = time()
-			currentSession["totalItemsLooted"] = totalItemLootedCounter
-
-			LA:prepareStatisticGroups()
-		else
-			-- delete current session
-			local sessions = LA.db.global.sessions
-			sessions[currentSessionID] = nil
-		end
-	end
-
-	pauseStart = time()
-
-	-- change stop button to start button
-	BUTTON_STOPSESSION:SetText("(Re)Start")
-	BUTTON_STOPSESSION:SetCallback("OnClick", function()
-		LA:onBtnStartSessionClick()
-	end)
-
-	LA:refreshUIs()
-	]]
 end
 
 
@@ -1465,6 +1573,13 @@ function LA:pauseSession()
 	BUTTON_STOPSESSION:SetCallback("OnClick", function()
 		LA:onBtnStartSessionClick()
 	end)
+
+	if b1 then
+		b1:SetNormalTexture([[Interface\Buttons\UI-SpellbookIcon-NextPage-Up]])
+		b1:SetScript("OnClick", function()
+			LA:onBtnStartSessionClick()
+		end)
+	end
 
 	LA:refreshUIs()
 end
@@ -1527,6 +1642,13 @@ function LA:NewSession()
 	BUTTON_STOPSESSION:SetCallback("OnClick", function()
 		LA:onBtnStopSessionClick()
 	end)
+
+	if b1 then
+		b1:SetNormalTexture([[Interface\TimeManager\PauseButton]])
+		b1:SetScript("OnClick", function()
+			LA:onBtnStopSessionClick()
+		end)
+	end
 
 	LA:refreshUIs()
 
@@ -1813,8 +1935,8 @@ end
 
 -- add a blank line to the given frame
 function LA:addSpacer(frame)
-	local SPACER = AceGUI:Create("Label")
-	SPACER.label:SetJustifyH("LEFT")
+	local SPACER = AceGUI:Create("LALabel")
+	SPACER:SetJustifyH("LEFT")
 	SPACER:SetText("   ")
 	SPACER:SetWidth(350)
 	frame:AddChild(SPACER)
@@ -1994,15 +2116,13 @@ function LA:isLootAppraiserLiteEnabled()
 	return LA.db.profile.display.enableLootAppraiserLite
 end
 
---[[
-function LA:isLootAppraiserNativeTimerEnabled()
-	if LA.db.profile.display.enableLootAppraiserNativeTimer == nil then
-		LA.db.profile.display.enableLootAppraiserNativeTimer = dbDefaults.profile.display.enableLootAppraiserNativeTimer
+function LA:isLootAppraiserTimerUIEnabled()
+	if LA.db.profile.display.enableLootAppraiserTimerUI == nil then
+		LA.db.profile.display.enableLootAppraiserTimerUI = dbDefaults.profile.display.enableLootAppraiserTimerUI
 	end
 
-	return LA.db.profile.display.enableLootAppraiserNativeTimer
+	return LA.db.profile.display.enableLootAppraiserTimerUI
 end
-]]
 
 function LA:isLastNoteworthyItemUIEnabled()
 	if LA.db.profile.display.enableLastNoteworthyItemUI == nil then

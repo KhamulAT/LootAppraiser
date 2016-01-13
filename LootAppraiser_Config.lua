@@ -392,25 +392,24 @@ local options = {
 							args = { enableLootAppraiserLite = { type = "toggle", order = 10, name = "Enable 'Loot Appraiser Lite' UI", desc = "Enables the 'Loot Appraiser Lite' UI which shows the looted item value.", width = "double", }, },
 							plugins = {},
 						},
-						--[[
-						displayLootAppraiserNativeTimerOptions = {
+						displayLootAppraiserTimerOptions = {
 							type = "group",
 							order = 40,
-							name = "Blizard Native Timer",
+							name = "Timer UI",
 							hidden = false,
 							inline = true,
 							args = {
-								enableLootAppraiserNativeTimer = {
+								enableLootAppraiserTimerUI = {
 									type = "toggle",
 									order = 10,
-									name = "Enable 'Blizzard Native Timer' UI",
-									desc = "Enables the 'Blizzard Native Timer' interface.",
+									name = "Enable 'Timer' UI",
+									desc = "Enables the 'Timer' UI.",
 									width = "double",
+									set = function(info, value) LA.db.profile.display[info[#info]] = value end,
 								},
 							},
 							plugins = {},
 						},
-						]]
 						displayTooltipOptions = { type = "group", order = 40, name = "Tooltip", hidden = true, inline = true,
 							args = {},
 							plugins = {},

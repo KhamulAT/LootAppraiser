@@ -223,8 +223,8 @@ do
 		
 		local titletext = frame:CreateFontString(nil, "ARTWORK")
 		titletext:SetFontObject(GameFontNormal)
-		titletext:SetPoint("TOPLEFT", 12, -8)
-		titletext:SetPoint("TOPRIGHT", -32, -8)
+		titletext:SetPoint("TOPLEFT", 12, -10)
+		titletext:SetPoint("TOPRIGHT", -32, -10)
 		self.titletext = titletext
 		
 		local title = CreateFrame("Button", nil, frame)
