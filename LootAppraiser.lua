@@ -256,7 +256,7 @@ function LA:OnEnable()
 
 	-- register event for...
 	-- ...loot window open
-	LA:RegisterEvent("LOOT_OPENED", LA.OnLootOpened)
+	LA:RegisterEvent("LOOT_READY", LA.OnLootOpened)
 	LA:RegisterEvent("BAG_UPDATE", LA.OnBagUpdate)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
