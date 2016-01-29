@@ -256,8 +256,10 @@ function LA:OnEnable()
 
 	-- register event for...
 	-- ...loot window open
-	LA:RegisterEvent("LOOT_READY", LA.OnLootOpened)
+	LA:RegisterEvent("LOOT_READY", LA.OnLootReady)
 	LA:RegisterEvent("BAG_UPDATE", LA.OnBagUpdate)
+
+	LA:RegisterEvent("CHAT_MSG_MONEY", LA.OnChatMsgMoney)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
@@ -274,6 +276,15 @@ function LA:OnDisable()
 	-- nothing to do
 end
 
+
+function LA.OnChatMsgMoney(event, msg)
+	LA:D("  OnChatMsgMoney: msg=" .. tostring(msg))
+
+	local lootedCopper = LA:getLootedCopperFromText(msg)
+
+	LA:D("    lootedCopper=" .. tostring(lootedCopper))
+	LA:handleCurrencyLooted(lootedCopper)
+end
 
 --[[-------------------------------------------------------------------------------------
 -- init lootappraiser db
@@ -294,6 +305,7 @@ function LA:initDB()
 			challengeUI = { ["height"] = 400, ["top"] = (parentHeight-50), ["left"] = 50, ["width"] = 400, },
 			liteUI = { ["height"] = 32, ["top"] = (parentHeight+20), ["left"] = 50, ["width"] = 400, },
 			lastNotewothyItemUI = { ["height"] = 32, ["top"] = (parentHeight-15), ["left"] = 50, ["width"] = 400, },
+			startSessionPromptUI = { },
 			general = { ["qualityFilter"] = "2", ["goldAlertThreshold"] = "100", ["ignoreRandomEnchants"] = true, ["surpressSessionStartDialog"] = false, },
 			pricesource = { ["source"] = "DBGlobalMarketAvg", },
 			notification = { ["sink"] = { ["sink20Sticky"] = false, ["sink20OutputSink"] = "Blizzard", }, ["enableToasts"] = true, ["playSoundEnabled"] = true, ["soundName"] = "Auction Window Open", },
@@ -338,7 +350,7 @@ function LA.chatCmdLootAppraiser(input)
 		MAIN_UI.frame:SetScript("OnEvent", 
 			function (self, event, ...) 
 			-- filter events
-				if string.find(event, "LOOT") and not (event == "BAG_UPDATE_COOLDOWN") then --string.startsWith(event, "LOOT_") or
+				if string.startsWith(event, "CHAT_MSG_") then --string.startsWith(event, "LOOT_") or
 					-- prepare event parameters
 					local variables = ""
 					for n=1,select('#',...) do
@@ -429,7 +441,7 @@ function LA.OnBagUpdate(event, bagID)
 end
 
 
-function LA.OnLootOpened( ... )
+function LA.OnLootReady( ... )
 	-- is LootAppraiser running?
 	if lootAppraiserDisabled then return end
 
@@ -474,15 +486,10 @@ function LA.OnLootOpened( ... )
 			elseif slotType == 2 then
 				-- currency looted
 
-				local lootedCoin = select(2, GetLootSlotInfo(i))
-				local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
+				--local lootedCoin = select(2, GetLootSlotInfo(i))
+				--local lootedCopper = LA:getLootedCopperFromText(lootedCoin)
 
-				--local data = {}
-				--data["currency"] = lootedCopper
-
-				-- save data
-				LA:handleCurrencyLooted(lootedCopper)
-				--currentSavedLoot[tostring(i)] = data
+				--LA:handleCurrencyLooted(lootedCopper)
 			end
 		end
 
@@ -505,7 +512,7 @@ function LA.OnLootOpened( ... )
 		end
 
 		-- todo: remove
-		LA:D("event:OnLootOpened")
+		LA:D("event:OnLootReady")
 		for key, value in pairs(currentSavedLoot) do
 			local data = ""
 			for k,v in pairs(value) do
@@ -637,7 +644,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			if LA:isPlaySoundEnabled() then
 				--PlaySound("AuctionWindowOpen", "master");
 				local soundName = LA.db.profile.notification.soundName or "None"
-				PlaySoundFile(LSM:Fetch("sound", soundName))
+				PlaySoundFile(LSM:Fetch("sound", soundName), "master")
 			end
 
 			-- check current mapID with session mapID
@@ -782,6 +789,7 @@ end
 --[[-------------------------------------------------------------------------------------
 -- the timer ui
 ---------------------------------------------------------------------------------------]]
+local timerUItotal = 0
 function LA:ShowTimerWindow()
 	LA:Debug("ShowTimerWindow")
 
@@ -797,6 +805,15 @@ function LA:ShowTimerWindow()
 	TIMER_UI:SetStatusTable(LA.db.profile.timerUI)
 	TIMER_UI:SetWidth(110)
 	TIMER_UI:SetHeight(30)
+	TIMER_UI.frame:SetScript("OnUpdate", 
+		function(event, elapsed)
+			timerUItotal = timerUItotal + elapsed
+    		if timerUItotal >= 1 then
+    			LA:refreshUIs()
+		        timerUItotal = 0
+		    end	
+		end
+	)
 
 	-- tab --
 	TIMER_UI_TAB = CreateFrame("Frame", nil, TIMER_UI.frame)
@@ -887,7 +904,7 @@ local PaneBackdrop  = {
 }
 
 local additionalButtonHeight = 0
-local total = 0
+local mainUItotal = 0
 function LA:ShowMainWindow(showMainUI) 
 	LA:Debug("ShowMainWindow")
 
@@ -918,10 +935,10 @@ function LA:ShowMainWindow(showMainUI)
 	MAIN_UI:EnableResize(false)
 	MAIN_UI.frame:SetScript("OnUpdate", 
 		function(event, elapsed)
-			total = total + elapsed
-    		if total >= 1 then
+			mainUItotal = mainUItotal + elapsed
+    		if mainUItotal >= 1 then
     			LA:refreshUIs()
-		        total = 0
+		        mainUItotal = 0
 		    end	
 		end
 	)
@@ -1303,7 +1320,8 @@ function LA:ShowStartSessionDialog()
 	local openLootAppraiser = true
 
 	-- create 'start session prompt' frame
-	START_SESSION_PROMPT = AceGUI:Create("Frame")
+	START_SESSION_PROMPT = AceGUI:Create("Frame")	
+	START_SESSION_PROMPT:SetStatusTable(LA.db.profile.startSessionPromptUI)
 	START_SESSION_PROMPT:SetLayout("Flow")
 	START_SESSION_PROMPT:SetTitle("Would you like to start a LootAppraiser session?")
 	START_SESSION_PROMPT:SetPoint("CENTER")
@@ -2206,6 +2224,18 @@ function LA:round(val, decimal)
   else
     return math.floor(val+0.5)
   end
+end
+
+
+function LA:split(str, sep)
+    local sep, fields = sep or ":", {}
+    local pattern = string.format("([^%s]+)", sep)
+    str:gsub(pattern, 
+    	function(c) 
+    		fields[#fields+1] = c 
+    	end
+    )
+    return fields
 end
 
 

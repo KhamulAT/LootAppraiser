@@ -370,7 +370,8 @@ local options = {
 					get = function(info) return LA.db.profile.display[info[#info]] end,
 					set = function(info, value) 
 						LA.db.profile.display[info[#info]] = value 
-						LA:prepareDataContainer() end,
+						LA:prepareDataContainer() 
+					end,
 					args = {
 						displayMainUiOptions = { type = "group", order = 10, name = "Main UI", hidden = false, inline = true,
 							args = {
@@ -423,24 +424,25 @@ local options = {
 						generalText15 = { type = "description", order = 15, fontSize = "medium",name = "EMail:",width = "half", }, 
 						generalText16 = { type = "description", order = 16, fontSize = "medium",name = "lootappraiser@gmail.com",width = "double", }, 
 						generalText20 = { type = "description", order = 20, fontSize = "medium", name = "\nAuthor/Designer/Developer: Profitz", width = "full", }, 
-						generalText26 = { type = "description", order = 26, fontSize = "small", name = "", width = "full", }, 
+						blank26 = { type = "description", order = 26, fontSize = "small", name = "", width = "full", }, 
 						generalText30 = { type = "description", order = 30, fontSize = "medium", name = "Twitter:", width = "half", }, 
 						generalText35 = { type = "description", order = 35, fontSize = "medium", name = "@WowProfitz (https://twitter.com/WowProfitz)", width = "double", }, 
-						generalText36 = { type = "description", order = 36, fontSize = "small", name = "", width = "full", }, 
+						blank36 = { type = "description", order = 36, fontSize = "small", name = "", width = "full", }, 
 						generalText40 = { type = "description", order = 40, fontSize = "medium", name = "Twitch:", width = "half", }, 
 						generalText45 = { type = "description", order = 45, fontSize = "medium", name = "ProfitzTV (http://www.twitch.tv/profitztv)", width = "double", }, 
-						generalText46 = { type = "description", order = 46, fontSize = "small", name = "", width = "full", }, 
+						blank46 = { type = "description", order = 46, fontSize = "small", name = "", width = "full", }, 
 						generalText50 = { type = "description", order = 50, fontSize = "medium", name = "EMail:", width = "half", }, 
 						generalText55 = { type = "description", order = 55, fontSize = "medium", name = "WowProfitz@Gmail.com", width = "double", }, 
 						generalText60 = { type = "description", order = 60, fontSize = "medium", name = "\nCo-Author/Lead Developer/Designer:  Testerle", width = "full", }, 
-						generalText66 = { type = "description", order = 66, fontSize = "small",name = "",width = "full", }, 
+						blank66 = { type = "description", order = 66, fontSize = "small",name = "",width = "full", }, 
 						generalText70 = { type = "description", order = 70, fontSize = "medium", name = "Twitter:", width = "half", }, 
 						generalText75 = { type = "description", order = 75, fontSize = "medium", name = "@Testerle (https://twitter.com/Testerle)", width = "double", }, 
 						generalText80 = { type = "description", order = 80, fontSize = "medium", name = "\nContributor(s)/Developer: Munglunch\n\nEarly Adopters/Beta Testers:", width = "full", }, 
-						generalText86 = { type = "description", order = 86, fontSize = "small", name = "", width = "full", }, 
+						blank86 = { type = "description", order = 86, fontSize = "small", name = "", width = "full", }, 
 						generalText100 = { type = "description", order = 100, fontSize = "medium", name = "ACubed10\nBrozerian\nConzec89\nDecepticon2012\nDozerBob\nFatherfajita\nGoblinRaset\nJuniorDeBoss\nMorricade\nPhatLewts\nSelltacular", width = "full", }, 
-						generalText110 = { type = "description", order = 110, fontSize = "small",name = "",width = "full", }, 
+						blank110 = { type = "description", order = 110, fontSize = "small",name = "",width = "full", }, 
 						enableDebugOutput = { type = "toggle",order = 120,name = "Enable debug output",desc = "Enable debug output",width = "full", },
+						blank130 = { type = "description", order = 130, fontSize = "small",name = "",width = "full", }, 
 					}, 
 				},
 			}, 
@@ -474,8 +476,7 @@ function Config:OnInitialize()
 	AceConfigRegistry:RegisterOptionsTable(LootAppraiser .. " Statistic", options.args.statistic, LootAppraiser)
 
 	local lootAppraiserConfig = AceConfigDialog:AddToBlizOptions(LootAppraiser)
-	-- add reset function
-	lootAppraiserConfig.default = Config.resetDB
+	lootAppraiserConfig.default = Config.resetDB -- add reset function
 
 	statisticFrame = AceConfigDialog:AddToBlizOptions(LootAppraiser .. " Statistic", "Statistic", LootAppraiser)
 	LA:prepareStatisticGroups() -- prepare statistic groups
