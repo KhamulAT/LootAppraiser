@@ -278,6 +278,8 @@ end
 
 
 function LA.OnChatMsgMoney(event, msg)
+	if not LA:isSessionRunning() then return end
+	
 	LA:D("  OnChatMsgMoney: msg=" .. tostring(msg))
 
 	local lootedCopper = LA:getLootedCopperFromText(msg)
@@ -422,7 +424,11 @@ function LA.OnBagUpdate(event, bagID)
 			-- check against saved loot
 			local data = currentSavedLoot[currentItemID]
 			if data ~= nil then
-				currentSavedLoot[currentItemID] = nil -- remove from saved loot
+				if data["multiNonStackItem"] == true then
+					--LA:D("  |cffff0000non-stackable item -> not removing|r")
+				else
+					currentSavedLoot[currentItemID] = nil -- remove from saved loot
+				end
 
 				local itemLink = data["link"]
 				local quantity = data["quantity"]
@@ -479,6 +485,12 @@ function LA.OnLootReady( ... )
 				data["link"] = itemLink
 				data["quantity"] = quantity
 				data["itemID"] = itemID
+
+				-- check for already existing itemID
+				if currentSavedLoot[itemID] then
+					-- add flag to signal multiple non stacking items
+					data["multiNonStackItem"] = true
+				end
 
 				-- save data
 				currentSavedLoot[itemID] = data
