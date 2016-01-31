@@ -18,7 +18,7 @@ LA.TSM3 = string.startsWith("" .. TSMVERSION, "v3") or string.startsWith("" .. T
 function LA:isItemInGroup(itemID, group)
 	if not LA.TSM3 then
 		-- tsm 2
-		local path = TSMAPI:GetGroupPath("item:" .. tostring(itemString))
+		local path = TSMAPI:GetGroupPath("item:" .. tostring(itemID))
 		return path == group
 	else
 		-- tsm 3
@@ -101,3 +101,50 @@ function LA:ParseCustomPrice(value)
 	end
 end
 
+
+function LA:GetPriceSources()
+	if not LA.TSM3 then
+		return TSMAPI:GetPriceSources()
+	else
+		return select(1, TSMAPI:GetPriceSources())
+	end
+end
+
+
+--[[-------------------------------------------------------------------------------------
+-- returns a table with the filtered available price sources
+---------------------------------------------------------------------------------------]]
+function LA:GetAvailablePriceSources()
+	--LA:D("GetAvailablePriceSources()")
+
+	local priceSources = {}
+	local keys = {}
+
+	-- filter
+	local tsmPriceSources = LA:GetPriceSources()
+	--LA:print_r(tsmPriceSources)
+	for k, v in pairs(tsmPriceSources) do
+		if LA.PRICE_SOURCE[k] then
+			--LA:D("  add price source " .. tostring(k))
+			--priceSources[k] = LA.PRICE_SOURCE[k]
+			table.insert(keys, k)
+		else
+			--LA:D("  skip price source " .. tostring(k))
+		end
+	end
+	
+	--LA:print_r(keys)
+
+	-- add custom
+	table.insert(keys, "Custom")
+
+	sort(keys)
+
+	--LA:print_r(keys)
+
+	for _,v in ipairs(keys) do
+		priceSources[v] = LA.PRICE_SOURCE[v]
+	end
+
+	return priceSources
+end

@@ -113,6 +113,7 @@ local options = {
 					order = 50,
 					name = "Price Source",
 					get = function(info) 
+						--LA:print_r(LA:GetAvailablePriceSources())
 						return LA.db.profile.pricesource[info[#info]] 
 					end,
 					set = function(info, value) 
@@ -124,7 +125,10 @@ local options = {
 							order = 20,
 							name = "Price Source",
 							desc = "TSM predefined price sources for item value calculation.",
-							values = LA.PRICE_SOURCE,
+							--values = LA.PRICE_SOURCE,
+							values = function()
+								return LA:GetAvailablePriceSources()
+							end,
 							width = "double",
 							set = function(info, value) 
 								local oldValue = LA.db.profile.pricesource[info[#info]]
