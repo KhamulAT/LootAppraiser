@@ -89,6 +89,10 @@ do
 	local function Show(self)
 		self.frame:Show()
 	end
+
+	local function SetMinResize(self, width, height)
+		self.frame:SetMinResize(width, height)
+	end
 	
 	local function OnAcquire(self)
 		self.frame:SetParent(UIParent)

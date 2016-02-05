@@ -45,8 +45,6 @@ local totalItemLootedCounter = 0	-- counter for looted items (before filtering)
 local savedLoot = {}
 local lootCollectedLastEntry = nil  -- remember last element from loot collected list to add elements before this (on top of the list)
 
-local dbDefaults
-
 local ITEM_FILTER_VENDOR = {
 	--DEFAULT ITEM IDs BELOW TO VENDORSELL PRICING
 	["1205"] = true, ["3770"] = true, ["104314"] = true, ["11444"] = true, ["104314"] = true, ["11444"] = true, ["117437"] = true, ["117439"] = true, 
@@ -93,6 +91,10 @@ LA.PRICE_SOURCE = {
 	["DBHistorical"] = "AuctionDB: Historical Price",
 	["DBMarket"] = "AuctionDB: Market Value",
 	["DBMinBuyout"] = "AuctionDB: Min Buyout",
+	["DBRegionHistorical"] = "AuctionDB: Region Historical Price",
+	["DBRegionMarketAvg"] = "AuctionDB: Region Market Value Avg",
+	["DBRegionMinBuyoutAvg"] = "AuctionDB: Region Min Buyout Avg",
+	["DBRegionSaleAvg"] = "AuctionDB: Region Global Sale Average",
 	["VendorSell"] = "VendorSell: Sell to Vendor cost",
 	["wowuctionMarket"] = "wowuction: Realm Market Value",
 	["wowuctionMedian"] = "wowuction: Realm Median Price",
@@ -175,16 +177,48 @@ end
 function LA:OnInitialize()
 	LA:Debug("LA:OnInitialize()")
 
-	LA:initDB()
+	self:initDB()
 
-	LA:SetSinkStorage(LA.db.profile.notification.sink)
+	-- price source check --
+	local priceSources = self:GetAvailablePriceSources()
+	-- only 2 or less price sources -> chat msg: missing modules
+	if self:tablelength(priceSources) <= 2 then
+		-- chat msg
+		self:Print("|cffff0000Attention!|r Missing TSM Modules for additional price sources (e.g. like TradeSkillMaster_AuctionDB for AuctionDB price sources).")
+		self:Print("|cffff0000LootAppraiser disabled.|r")
+		self:Disable()
+		return
+	else
+		-- current preselected price source
+		local priceSource = self:getPriceSource() -- die voreingestellte Preisquelle von LA
+
+		-- price source 'custom'
+		if priceSource == "Custom" then
+			-- validate 'custom' price source 
+			local isValidCustomPriceSource = self:ParseCustomPrice(self:getCustomPriceSource())
+			if not isValidCustomPriceSource then
+				-- invalid -> chat msg: invalid 'custom' price source
+				self:Print("|cffff0000Attention!|r You have selected 'Custom' as price source but your formular ist invalid (see TSM documentation for detailed custom price source informations).")
+				self:Print(self:getCustomPriceSource())
+			end
+		else
+			-- normal price source check against prepared list
+			if not priceSources[priceSource] then
+				-- invalid -> chat msg: invalid price source
+				self:Print("|cffff0000Attention!|r Your selected price source is not valid (maybe due to a missing TSM module). Please select another price source or install the needed TSM module for the selected price source (see TSM documentation).")
+			end
+	 	end
+	end
+
+	self:SetSinkStorage(self.db.profile.notification.sink)
 
 	-- prepare minimap icon --
-	LA.LibDBIcon = LibStub("LibDBIcon-1.0")
-	LA.LibDataBroker = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
+	self.LibDBIcon = LibStub("LibDBIcon-1.0")
+	self.LibDataBroker = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
 		type = "launcher",
 		text = "Loot Appraiser", -- for what?
 		icon = "Interface\\Icons\\Ability_Racial_PackHobgoblin",
+
 		OnClick = function(self, button, down)
 			if button == "LeftButton" then
 				if not LA:isSessionRunning() then
@@ -199,6 +233,7 @@ function LA:OnInitialize()
 				InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
 			end
 		end,
+
 		OnTooltipShow = function (tooltip)
 			tooltip:AddLine(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION, 1 , 1, 1)
 			tooltip:AddLine("|cFFFFFFCCLeft-Click|r to open the main window")
@@ -206,7 +241,7 @@ function LA:OnInitialize()
 			tooltip:AddLine("|cFFFFFFCCDrag|r to move this button")
 			tooltip:AddLine(" ") -- spacer
 
-			if LA:isSessionRunning() then
+			if self:isSessionRunning() then
 				local offset
 				if pauseStart ~= nil then
 					offset = pauseStart -- session is paused
@@ -235,7 +270,7 @@ function LA:OnInitialize()
 			end
 		end
 	})
-	LA.LibDBIcon:Register(LA.METADATA.NAME, LA.LibDataBroker, LA.db.profile.minimapIcon)
+	self.LibDBIcon:Register(LA.METADATA.NAME, self.LibDataBroker, self.db.profile.minimapIcon)
 
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
@@ -250,9 +285,6 @@ function LA:OnEnable()
 	LA:RegisterChatCommand("la", LA.chatCmdLootAppraiser)
 	LA:RegisterChatCommand("lal", LA.chatCmdLootAppraiserLite)
 	LA:RegisterChatCommand("laa", LA.chatCmdGoldAlertTresholdMonitor)
-
-	--LA:RegisterChatCommand("las", function() LibStub("AceConfigDialog-3.0"):Open("LootAppraiser Statistic") end)
-	--LA:RegisterChatCommand("lac", function() LibStub("AceConfigDialog-3.0"):Open("LootAppraiser Challenge") end)
 
 	-- register event for...
 	-- ...loot window open
@@ -297,7 +329,8 @@ function LA:initDB()
 	local parentWidth = UIParent:GetWidth()
 	local parentHeight = UIParent:GetHeight()
 
-	dbDefaults = {
+	-- la defaults
+	self.dbDefaults = {
 		profile = {
 			enableDebugOutput = false,
 			-- minimap icon position and visibility
@@ -321,7 +354,7 @@ function LA:initDB()
 	}
 	
 	-- load the saved db values
-	LA.db = LibStub:GetLibrary("AceDB-3.0"):New("LootAppraiserDB", dbDefaults, true)
+	self.db = LibStub:GetLibrary("AceDB-3.0"):New("LootAppraiserDB", self.dbDefaults, true)
 end
 
 
@@ -524,14 +557,16 @@ function LA.OnLootReady( ... )
 		end
 
 		-- todo: remove
+		--[[
 		LA:D("event:OnLootReady")
 		for key, value in pairs(currentSavedLoot) do
 			local data = ""
 			for k,v in pairs(value) do
-				data = data .. k .. "=" .. v .. "; "
+				data = data .. tostring(k) .. "=" .. tostring(v) .. "; "
 			end
 			LA:D("  key=" .. key .. "; value=" .. data)
 		end
+		]]
 	end
 end
 
@@ -637,7 +672,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			end
 
 			-- add item to drops
-			local drops = LA.db.global.drops
+			local drops = self.db.global.drops
 			local itemDrops = drops[itemID]
 			if itemDrops == nil then
 				itemDrops = {}
@@ -655,7 +690,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			-- play sound (if enabled)
 			if LA:isPlaySoundEnabled() then
 				--PlaySound("AuctionWindowOpen", "master");
-				local soundName = LA.db.profile.notification.soundName or "None"
+				local soundName = self.db.profile.notification.soundName or "None"
 				PlaySoundFile(LSM:Fetch("sound", soundName), "master")
 			end
 
@@ -763,7 +798,7 @@ function LA:ShowLastNoteworthyItemWindow()
 
 	LAST_NOTEWOTHYITEM_UI = AceGUI:Create("LALiteWindow")
 	LAST_NOTEWOTHYITEM_UI:Hide()
-	LAST_NOTEWOTHYITEM_UI:SetStatusTable(LA.db.profile.lastNotewothyItemUI)
+	LAST_NOTEWOTHYITEM_UI:SetStatusTable(self.db.profile.lastNotewothyItemUI)
 	LAST_NOTEWOTHYITEM_UI:SetWidth(350)
 	LAST_NOTEWOTHYITEM_UI:SetHeight(30)
 
@@ -786,7 +821,7 @@ function LA:ShowLiteWindow()
 
 	LITE_UI = AceGUI:Create("LALiteWindow")
 	LITE_UI:Hide()
-	LITE_UI:SetStatusTable(LA.db.profile.liteUI)
+	LITE_UI:SetStatusTable(self.db.profile.liteUI)
 	LITE_UI:SetWidth(150)
 	LITE_UI:SetHeight(30)
 	--LITE_UI:EnableResize(false)
@@ -814,7 +849,7 @@ function LA:ShowTimerWindow()
 	TIMER_UI:Hide()
 
 	TIMER_UI:SetTitle("|cffffffff" .. date("!%X", 0) .. "|r")
-	TIMER_UI:SetStatusTable(LA.db.profile.timerUI)
+	TIMER_UI:SetStatusTable(self.db.profile.timerUI)
 	TIMER_UI:SetWidth(110)
 	TIMER_UI:SetHeight(30)
 	TIMER_UI.frame:SetScript("OnUpdate", 
@@ -940,7 +975,7 @@ function LA:ShowMainWindow(showMainUI)
 
 	MAIN_UI = AceGUI:Create("Window")
 	MAIN_UI:Hide()
-	MAIN_UI:SetStatusTable(LA.db.profile.mainUI)
+	MAIN_UI:SetStatusTable(self.db.profile.mainUI)
 	MAIN_UI:SetTitle(LA.METADATA.NAME .. " " .. LA.METADATA.VERSION .. ": Make Farming Sexy!")
 	MAIN_UI:SetLayout("Flow")
 	MAIN_UI:SetWidth(410)
@@ -1072,7 +1107,7 @@ function LA:ShowMainWindow(showMainUI)
 	-- adjust height
 	local baseHeight = 112
 
-	local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+	local rowCount = self.db.profile.display.lootedItemListRowCount or 10
 	local listHeight = rowCount * 15
 
 	local dataContainerHeight = dataContainer.frame:GetHeight()
@@ -1113,7 +1148,7 @@ function LA:prepareDataContainer()
 	-- resize 
 	local listHeight
 	if GUI_SCROLLCONTAINER ~= nil then
-		local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+		local rowCount = self.db.profile.display.lootedItemListRowCount or 10
 		listHeight = rowCount * 15
 		GUI_SCROLLCONTAINER:SetHeight(listHeight)
 	end
@@ -1172,7 +1207,7 @@ function LA:prepareDataContainer()
 	-- adjust height
 	local baseHeight = 112
 
-	local rowCount = LA.db.profile.display.lootedItemListRowCount or 10
+	local rowCount = self.db.profile.display.lootedItemListRowCount or 10
 	local listHeight = rowCount * 15
 
 	local dataContainerHeight = dataContainer.frame:GetHeight()
@@ -1333,7 +1368,7 @@ function LA:ShowStartSessionDialog()
 
 	-- create 'start session prompt' frame
 	START_SESSION_PROMPT = AceGUI:Create("Frame")	
-	START_SESSION_PROMPT:SetStatusTable(LA.db.profile.startSessionPromptUI)
+	START_SESSION_PROMPT:SetStatusTable(self.db.profile.startSessionPromptUI)
 	START_SESSION_PROMPT:SetLayout("Flow")
 	START_SESSION_PROMPT:SetTitle("Would you like to start a LootAppraiser session?")
 	START_SESSION_PROMPT:SetPoint("CENTER")
@@ -1497,7 +1532,7 @@ function LA:prepareNewSession()
 
 	currentSession["player"] = nameString .. "-" .. realm
 
-	local sessions = LA.db.global.sessions
+	local sessions = self.db.global.sessions
 	currentSessionID = #sessions + 1
 
 	sessions[currentSessionID] = currentSession
@@ -1591,7 +1626,7 @@ function LA:pauseSession()
 			LA:prepareStatisticGroups()
 		else
 			-- delete current session
-			local sessions = LA.db.global.sessions
+			local sessions = self.db.global.sessions
 			sessions[currentSessionID] = nil
 		end
 	end
@@ -1637,7 +1672,7 @@ function LA:NewSession()
 			LA:prepareStatisticGroups()
 		else
 			-- delete current session
-			local sessions = LA.db.global.sessions
+			local sessions = self.db.global.sessions
 			sessions[currentSessionID] = nil
 			-- TODO delete currentSession
 		end
@@ -1951,7 +1986,7 @@ function LA:refreshStatusText()
 		-- prepare status text
 		local preparedText = "Filter: " .. LA.QUALITY_FILTER[tostring(LA:getQualityFilter())] 								-- filter
 		preparedText = preparedText .. " - GAT: |cffffffff" .. LA:getGoldAlertThreshold() .. "|cffffd100g|r"				-- gat
-		preparedText = preparedText .. " - Source: |cffffffff" .. tostring(LA.db.profile.pricesource.source) .. "|r" 	-- price source
+		preparedText = preparedText .. " - Source: |cffffffff" .. tostring(self.db.profile.pricesource.source) .. "|r" 	-- price source
 		
 		--MAIN_UI:SetStatusText(preparedText)
 		STATUSTEXT:SetText(preparedText)
@@ -2014,80 +2049,88 @@ end
 -- access methods for loot appraiser db values (saved variables)
 ---------------------------------------------------------------------------------------]]
 function LA:isBlacklistTsmGroupEnabled()
-	if LA.db.profile.blacklist.tsmGroupEnabled == nil then
-		LA.db.profile.blacklist.tsmGroupEnabled = dbDefaults.profile.blacklist.tsmGroupEnabled
+	if self.db.profile.blacklist.tsmGroupEnabled == nil then
+		self.db.profile.blacklist.tsmGroupEnabled = self.dbDefaults.profile.blacklist.tsmGroupEnabled
 	end
 
-	return LA.db.profile.blacklist.tsmGroupEnabled
+	return self.db.profile.blacklist.tsmGroupEnabled
 end
 
 function LA:isDestroyBlacklistedItems()
-	--if LA:isBlacklistTsmGroupEnabled() and LA.db.profile.addBlacklistedItems2DestroyTrash then
-	if LA.db.profile.blacklist.addBlacklistedItems2DestroyTrash then
+	--if LA:isBlacklistTsmGroupEnabled() and self.db.profile.addBlacklistedItems2DestroyTrash then
+	if self.db.profile.blacklist.addBlacklistedItems2DestroyTrash then
 		return true
 	end
 	return false
 end
 
 function LA:getBlacklistTsmGroup()
-	if LA.db.profile.blacklist.tsmGroup == nil then
-		LA.db.profile.blacklist.tsmGroup = dbDefaults.profile.blacklist.tsmGroup
+	if self.db.profile.blacklist.tsmGroup == nil then
+		self.db.profile.blacklist.tsmGroup = self.dbDefaults.profile.blacklist.tsmGroup
 	end
 
-	return LA.db.profile.blacklist.tsmGroup
+	return self.db.profile.blacklist.tsmGroup
 end
 
 function LA:getGoldAlertThreshold()
-	if LA.db.profile.general.goldAlertThreshold == nil then
-		LA.db.profile.general.goldAlertThreshold = dbDefaults.profile.general.goldAlertThreshold
+	if self.db.profile.general.goldAlertThreshold == nil then
+		self.db.profile.general.goldAlertThreshold = self.dbDefaults.profile.general.goldAlertThreshold
 	end
 
-	return tonumber(LA.db.profile.general.goldAlertThreshold)
+	return tonumber(self.db.profile.general.goldAlertThreshold)
 end
 
 function LA:getQualityFilter()
-	if LA.db.profile.general.qualityFilter == nil then
-		LA.db.profile.general.qualityFilter = dbDefaults.profile.general.qualityFilter
+	if self.db.profile.general.qualityFilter == nil then
+		self.db.profile.general.qualityFilter = self.dbDefaults.profile.general.qualityFilter
 	end
 
-	return tonumber(LA.db.profile.general.qualityFilter)
+	return tonumber(self.db.profile.general.qualityFilter)
 end
 
 function LA:getIgnoreRandomEnchants()
-	if LA.db.profile.general.ignoreRandomEnchants == nil then
-		LA.db.profile.general.ignoreRandomEnchants = dbDefaults.profile.general.ignoreRandomEnchants
+	if self.db.profile.general.ignoreRandomEnchants == nil then
+		self.db.profile.general.ignoreRandomEnchants = self.dbDefaults.profile.general.ignoreRandomEnchants
 	end
 
-	return LA.db.profile.general.ignoreRandomEnchants
+	return self.db.profile.general.ignoreRandomEnchants
 end
 
 function LA:getSessions()
-	if LA.db.global.sessions == nil then
-		LA.db.global.sessions = {}
+	if self.db.global.sessions == nil then
+		self.db.global.sessions = {}
 	end
 
-	return LA.db.global.sessions
+	return self.db.global.sessions
 end
 
 function LA:getPriceSource()
-	if LA.db.profile.pricesource.source == nil then
-		LA.db.profile.pricesource.source = dbDefaults.profile.pricesource.source
+	if self.db.profile.pricesource.source == nil then
+		self.db.profile.pricesource.source = self.dbDefaults.profile.pricesource.source
 	end
 
-	local priceSource = LA.db.profile.pricesource.source
+	local priceSource = self.db.profile.pricesource.source
 	--if priceSource == "Custom" then
-	--	priceSource = LA.db.profile.pricesource.customPriceSource
+	--	priceSource = self.db.profile.pricesource.customPriceSource
 	--end
 
 	return priceSource
 end
 
-function LA:isToastsEnabled()
-	if LA.db.profile.notification.enableToasts == nil then
-		LA.db.profile.notification.enableToasts = dbDefaults.profile.enableToasts
+function LA:getCustomPriceSource()
+	if self.db.profile.pricesource.customPriceSource == nil then
+		self.db.profile.pricesource.customPriceSource = self.dbDefaults.profile.pricesource.customPriceSource
 	end
 
-	return LA.db.profile.notification.enableToasts
+	return self.db.profile.pricesource.customPriceSource
+end
+
+function LA:isToastsEnabled()
+	if self.db.profile.notification.enableToasts == nil then
+		self.db.profile.notification.enableToasts = self.dbDefaults.profile.enableToasts
+	end
+
+	return self.db.profile.notification.enableToasts
 end
 
 function LA:isSessionRunning()
@@ -2095,43 +2138,43 @@ function LA:isSessionRunning()
 end
 
 function LA:isPlaySoundEnabled()
-	if LA.db.profile.notification.playSoundEnabled == nil then
-		LA.db.profile.notification.playSoundEnabled = dbDefaults.profile.notification.playSoundEnabled
+	if self.db.profile.notification.playSoundEnabled == nil then
+		self.db.profile.notification.playSoundEnabled = self.dbDefaults.profile.notification.playSoundEnabled
 	end
 
-	return LA.db.profile.notification.playSoundEnabled
+	return self.db.profile.notification.playSoundEnabled
 end
 
 function LA:isSellTrashTsmGroupEnabled()
-	if LA.db.profile.sellTrash.tsmGroupEnabled == nil then
-		LA.db.profile.sellTrash.tsmGroupEnabled = dbDefaults.profile.sellTrash.tsmGroupEnabled
+	if self.db.profile.sellTrash.tsmGroupEnabled == nil then
+		self.db.profile.sellTrash.tsmGroupEnabled = self.dbDefaults.profile.sellTrash.tsmGroupEnabled
 	end
 
-	return LA.db.profile.sellTrash.tsmGroupEnabled
+	return self.db.profile.sellTrash.tsmGroupEnabled
 end
 
 function LA:getSellTrashTsmGroup()
-	if LA.db.profile.sellTrash.tsmGroup == nil then
-		LA.db.profile.sellTrash.tsmGroup = dbDefaults.profile.sellTrash.tsmGroup
+	if self.db.profile.sellTrash.tsmGroup == nil then
+		self.db.profile.sellTrash.tsmGroup = self.dbDefaults.profile.sellTrash.tsmGroup
 	end
 
-	return LA.db.profile.sellTrash.tsmGroup
+	return self.db.profile.sellTrash.tsmGroup
 end
 
 function LA:isDisplayEnabled(name)
-	if LA.db.profile.display[name] == nil then
-		LA.db.profile.display[name] = dbDefaults.profile.display[name]
+	if self.db.profile.display[name] == nil then
+		self.db.profile.display[name] = self.dbDefaults.profile.display[name]
 	end
 
-	return LA.db.profile.display[name]
+	return self.db.profile.display[name]
 end
 
 function LA:isSurpressSessionStartDialog()
-	if LA.db.profile.general.surpressSessionStartDialog == nil then
-		LA.db.profile.general.surpressSessionStartDialog = dbDefaults.profile.general.surpressSessionStartDialog
+	if self.db.profile.general.surpressSessionStartDialog == nil then
+		self.db.profile.general.surpressSessionStartDialog = self.dbDefaults.profile.general.surpressSessionStartDialog
 	end
 
-	return LA.db.profile.general.surpressSessionStartDialog
+	return self.db.profile.general.surpressSessionStartDialog
 end
 
 function LA:getCurrentSession()
@@ -2139,35 +2182,35 @@ function LA:getCurrentSession()
 end
 
 function LA:isLootAppraiserLiteEnabled()
-	if LA.db.profile.display.enableLootAppraiserLite == nil then
-		LA.db.profile.display.enableLootAppraiserLite = dbDefaults.profile.display.enableLootAppraiserLite
+	if self.db.profile.display.enableLootAppraiserLite == nil then
+		self.db.profile.display.enableLootAppraiserLite = self.dbDefaults.profile.display.enableLootAppraiserLite
 	end
 
-	return LA.db.profile.display.enableLootAppraiserLite
+	return self.db.profile.display.enableLootAppraiserLite
 end
 
 function LA:isLootAppraiserTimerUIEnabled()
-	if LA.db.profile.display.enableLootAppraiserTimerUI == nil then
-		LA.db.profile.display.enableLootAppraiserTimerUI = dbDefaults.profile.display.enableLootAppraiserTimerUI
+	if self.db.profile.display.enableLootAppraiserTimerUI == nil then
+		self.db.profile.display.enableLootAppraiserTimerUI = self.dbDefaults.profile.display.enableLootAppraiserTimerUI
 	end
 
-	return LA.db.profile.display.enableLootAppraiserTimerUI
+	return self.db.profile.display.enableLootAppraiserTimerUI
 end
 
 function LA:isLastNoteworthyItemUIEnabled()
-	if LA.db.profile.display.enableLastNoteworthyItemUI == nil then
-		LA.db.profile.display.enableLastNoteworthyItemUI = dbDefaults.profile.display.enableLastNoteworthyItemUI
+	if self.db.profile.display.enableLastNoteworthyItemUI == nil then
+		self.db.profile.display.enableLastNoteworthyItemUI = self.dbDefaults.profile.display.enableLastNoteworthyItemUI
 	end
 
-	return LA.db.profile.display.enableLastNoteworthyItemUI
+	return self.db.profile.display.enableLastNoteworthyItemUI
 end
 
 function LA:isDebugOutputEnabled()
-	if LA.db.profile.enableDebugOutput == nil then
-		LA.db.profile.enableDebugOutput = dbDefaults.profile.enableDebugOutput
+	if self.db.profile.enableDebugOutput == nil then
+		self.db.profile.enableDebugOutput = self.dbDefaults.profile.enableDebugOutput
 	end
 
-	return LA.db.profile.enableDebugOutput
+	return self.db.profile.enableDebugOutput
 end
 
 --[[-------------------------------------------------------------------------------------
@@ -2254,7 +2297,7 @@ end
 function LA:printSessions()
 	if not LA.DEBUG then return end
 
-	local sessions = LA.db.global.sessions
+	local sessions = self.db.global.sessions
 	for i,v in ipairs(sessions) do
 		local sessionMapID = v["mapID"]
 		local sessionStart = v["start"];

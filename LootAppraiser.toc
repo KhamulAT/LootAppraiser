@@ -4,6 +4,7 @@
 ## Author: Profitz, Testerle
 ## Version: 2016.v1.6
 ## RequiredDeps: TradeskillMaster
+## OptionalDeps: TradeSkillMaster_AuctionDB, TradeSkillMaster_WoWuction, 
 ## SavedVariables: LootAppraiserDB
 ## X-Embeds: Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibExtraTip, LibParse, LibCompress, LibGraph-2.0
 

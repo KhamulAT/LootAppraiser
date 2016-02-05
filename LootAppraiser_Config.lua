@@ -20,17 +20,12 @@ Config.SESSIONDATA_GROUPBY = {
 local options = {
 	type = "group",
 	args = {
-		general = {
-			type = "group", 
-			name = LootAppraiser, 
-			get = function(info) 
-				return LA.db.profile[info[#info]] 
-			end,
+		general = { type = "group", name = LootAppraiser, childGroups = "tab",
+			get = function(info) return LA.db.profile[info[#info]] end,
 			set = function(info, value) 
 				LA.db.profile[info[#info]] = value;
 				LA:refreshStatusText()
 			end,
-			childGroups = "tab",
 			args = {
 				generalOptionsGrp = {
 					type = "group",
@@ -273,9 +268,7 @@ local options = {
 							--width = "double",
 							set = function(info, value) 
 								local oldValue = LA.db.profile.blacklist[info[#info]]
-								if oldValue ~= value then
-									LA:Print("Blacklist items via TSM group: " .. Config:formatBoolean(value) .. ".")
-								end
+								if oldValue ~= value then LA:Print("Blacklist items via TSM group: " .. Config:formatBoolean(value) .. ".") end
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
 						},
@@ -292,7 +285,6 @@ local options = {
 								LA:Print("Blacklisted items TSM group set to: " .. value)
 								LA.db.profile.blacklist[info[#info]] = value;
 							end,
-							-- TODO validation
 							validate = function(info, value)
 								-- validate the tsn group
 								if value == nil or value == "" then
@@ -303,69 +295,25 @@ local options = {
 								return true
 							end,
 						},
-						emptyLine2 = {
-							type = "description",
-							order = 40,
-							name = " ",
-							width = "full"
-						},
-						
-
-
+						emptyLine2 = { type = "description", order = 40, name = " ", width = "full" },
 					},
 				},
-				notificationOptionsGrp = {
-					type = "group",
-					order = 75,
-					name = "Notifications",
-					get = function(info) 
-						return LA.db.profile.notification[info[#info]] 
-					end,
-					set = function(info, value) 
-						LA.db.profile.notification[info[#info]] = value;
-					end,
+				notificationOptionsGrp = { type = "group", order = 75, name = "Notifications",
+					get = function(info) return LA.db.profile.notification[info[#info]] end,
+					set = function(info, value) LA.db.profile.notification[info[#info]] = value end,
 					args = {
-						noteworthyItemOutputHeader = {
-							order = 100,
-							type = "header",
-							name = "Noteworthy Item Output Channel",
-							--cmdHidden = true,
-						},
+						noteworthyItemOutputHeader = { order = 100, type = "header", name = "Noteworthy Item Output Channel", },
 						notificationLibSink = LA:GetSinkAce3OptionsDataTable(),
-						enableToasts = {
-							type = "toggle",
-							order = 300,
-							name = "Enable Toasts",
-							desc = "Enable Toasts",
-							width = "double",
+						enableToasts = { type = "toggle", order = 300, name = "Enable Toasts", desc = "Enable Toasts", width = "double",
 							set = function(info, value) 
 								local oldValue = LA.db.profile.notification[info[#info]]
-								if oldValue ~= value then
-									LA:Print("Enable Toasts set: " .. Config:formatBoolean(value) .. ".")
-								end
+								if oldValue ~= value then LA:Print("Enable Toasts set: " .. Config:formatBoolean(value) .. ".") end
 								LA.db.profile.notification[info[#info]] = value;
 							end,
 						},
-						noteworthyItemSoundHeader = {
-							order = 400,
-							type = "header",
-							name = "Noteworthy Item Sound",
-							--cmdHidden = true,
-						},
-						playSoundEnabled = {
-							order = 425,
-							type = "toggle",
-							name = "Play Sound",
-							desc = "Play Sound",
-						},
-						soundName = {
-							order = 450,
-							type = "select",
-							name = "Sound",
-							desc = "Sound",
-							width = "double",
-							dialogControl = "LSM30_Sound",
-							values = LSM:HashTable("sound"),							
+						noteworthyItemSoundHeader = { order = 400, type = "header", name = "Noteworthy Item Sound", },
+						playSoundEnabled = { order = 425, type = "toggle", name = "Play Sound", desc = "Play Sound", },
+						soundName = { order = 450, type = "select", name = "Sound", desc = "Sound", width = "double", dialogControl = "LSM30_Sound", values = LSM:HashTable("sound"),
 							disabled = function() return not LA.db.profile.notification.playSoundEnabled end,
 						},
 					},
