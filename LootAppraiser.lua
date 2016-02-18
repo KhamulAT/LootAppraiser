@@ -1194,7 +1194,7 @@ function LA.doExplicitReset(instancemsg, failed)
 		end
 	end
 end
-hooksecurefunc("ResetInstances", LA.doExplicitReset)
+--hooksecurefunc("ResetInstances", LA.doExplicitReset)
 
 
 local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
