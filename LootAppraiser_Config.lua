@@ -9,6 +9,10 @@ local AceGUI = LibStub("AceGUI-3.0")
 
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
+-- Lua APIs
+local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort = 
+	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort
+
 
 Config.SESSIONDATA_GROUPBY = {
 	["datetime"] = "Date", 
@@ -108,7 +112,7 @@ local options = {
 					order = 50,
 					name = "Price Source",
 					get = function(info) 
-						--LA:print_r(LA:GetAvailablePriceSources())
+						--LA:print_r(LA.TSM:GetAvailablePriceSources())
 						return LA.db.profile.pricesource[info[#info]] 
 					end,
 					set = function(info, value) 
@@ -122,7 +126,7 @@ local options = {
 							desc = "TSM predefined price sources for item value calculation.",
 							--values = LA.PRICE_SOURCE,
 							values = function()
-								return LA:GetAvailablePriceSources()
+								return LA.TSM:GetAvailablePriceSources()
 							end,
 							width = "double",
 							set = function(info, value) 
@@ -148,7 +152,7 @@ local options = {
 								LA.db.profile.pricesource[info[#info]] = value;
 							end,
 							validate = function(info, value)
-								local isValidPriceSource = LA:ParseCustomPrice(value)
+								local isValidPriceSource = LA.TSM:ParseCustomPrice(value)
 								if not isValidPriceSource then
 									-- error message
 									DEFAULT_CHAT_FRAME:AddMessage("Invalid custom price source. See TSM documentation for detailed description.")
@@ -543,7 +547,7 @@ function Config:test()
 			rowGrp:AddChild(labelDuration)
 			
 			-- looted item value
-			local formattedLiv = LA:FormatTextMoney(liv) or 0
+			local formattedLiv = LA.TSM:FormatTextMoney(liv) or 0
 
 			local labelLiv = AceGUI:Create("Label")
 			labelLiv:SetText(formattedLiv)
@@ -678,7 +682,7 @@ function Config:createSessionGrp(session, order)
 	elseif groupBy == "liv" then
 		local liv = session["liv"]
 
-		name = LA:FormatTextMoney(liv) or 0
+		name = LA.TSM:FormatTextMoney(liv) or 0
 	elseif groupBy == "livPerHour" then
 		local liv = session["liv"] or 0
 		local sessionStart = session["start"]
@@ -784,7 +788,7 @@ function Config:getStatisticGroups()
 			Config:addEmptyLine(sessionGrp, (index+40))
 
 			-- looted item value
-			local formattedLiv = LA:FormatTextMoney(liv) or 0
+			local formattedLiv = LA.TSM:FormatTextMoney(liv) or 0
 			Config:addSessionData(sessionGrp, "liv", "Looted Item Value:", formattedLiv, (index+50))
 
 			-- ...per hour			

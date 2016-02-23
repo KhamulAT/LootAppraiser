@@ -3,6 +3,10 @@ local LootAppraiser, LA = ...;
 
 local SalvageCrate = LA:NewModule("SalvageCrate", "AceEvent-3.0")
 
+-- Lua APIs
+local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort = 
+	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort
+
 
 --[[-------------------------------------------------------------------------------------
 -- AceAddon-3.0 - module standard methods

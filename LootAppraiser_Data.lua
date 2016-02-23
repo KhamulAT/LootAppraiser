@@ -3,6 +3,10 @@ local LootAppraiser, LA = ...;
 
 local Data = LA:NewModule("Data", "AceEvent-3.0", "AceConsole-3.0")
 
+-- Lua APIs
+local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort = 
+	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort
+
 --local LA = LibStub("AceAddon-3.0"):GetAddon("LootAppraiser")
 --local L = LibStub("AceLocale-3.0"):GetLocale("LootAppraiser", true)
 
@@ -41,7 +45,7 @@ f:SetScript("OnUpdate",
 			lootedItemValue = 0
 		end
 
-		dataobj.text = LA:FormatTextMoney(lootedItemValue)
+		dataobj.text = LA.TSM:FormatTextMoney(lootedItemValue)
 	end
 )
 
@@ -53,10 +57,10 @@ function dataobj:OnTooltipShow()
 	local currentSession = LA:getCurrentSession()
 	if currentSession ~= nil then
 		local lootedItemValue = currentSession["liv"] or 0
-		self:AddDoubleLine("|cFFFFFFFFLooted Item Value|r", "|cFFFFFFFF" .. tostring(LA:FormatTextMoney(lootedItemValue)) .. "|r")
+		self:AddDoubleLine("|cFFFFFFFFLooted Item Value|r", "|cFFFFFFFF" .. tostring(LA.TSM:FormatTextMoney(lootedItemValue)) .. "|r")
 
 		local currencyLooted = LA:getTotalLootedCurrency() or 0
-		self:AddDoubleLine("|cFFFFFFFFCurrency Looted|r", "|cFFFFFFFF" ..  tostring(LA:FormatTextMoney(currencyLooted)) .. "|r")
+		self:AddDoubleLine("|cFFFFFFFFCurrency Looted|r", "|cFFFFFFFF" ..  tostring(LA.TSM:FormatTextMoney(currencyLooted)) .. "|r")
 
 		local itemsLooted = lootedItemCounter or 0
 		self:AddDoubleLine("|cFFFFFFFFItems Looted|r", "|cFFFFFFFF" ..  tostring(itemsLooted) .. "|r")

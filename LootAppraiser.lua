@@ -132,7 +132,7 @@ local function OnTooltipSetItem(tooltip, ...)
 	if not lineAdded then
 		local _, link = tooltip:GetItem()
 
-		local itemID = LA:GetItemID(link)
+		local itemID = LA.TSM:GetItemID(link)
 
 		local data = LA.db.global.drops[itemID]
 		if data then
@@ -186,7 +186,7 @@ function LA:OnInitialize()
 	self:initDB()
 
 	-- price source check --
-	local priceSources = self:GetAvailablePriceSources()
+	local priceSources = self.TSM:GetAvailablePriceSources()
 	-- only 2 or less price sources -> chat msg: missing modules
 	if self:tablelength(priceSources) <= 2 then
 		-- chat msg
@@ -201,7 +201,7 @@ function LA:OnInitialize()
 		-- price source 'custom'
 		if priceSource == "Custom" then
 			-- validate 'custom' price source 
-			local isValidCustomPriceSource = self:ParseCustomPrice(self:getCustomPriceSource())
+			local isValidCustomPriceSource = self.TSM:ParseCustomPrice(self:getCustomPriceSource())
 			if not isValidCustomPriceSource then
 				-- invalid -> chat msg: invalid 'custom' price source
 				self:Print("|cffff0000Attention!|r You have selected 'Custom' as price source but your formular ist invalid (see TSM documentation for detailed custom price source informations).")
@@ -552,7 +552,7 @@ function LA.OnLootReady( ... )
 			if slotType == 1 then
 				-- item looted
 				local itemLink = GetLootSlotLink(i)
-				local itemID = LA:GetItemID(itemLink, true) -- get item id
+				local itemID = LA.TSM:GetItemID(itemLink, true) -- get item id
 
 				local quantity = select(3, GetLootSlotInfo(i))
 
@@ -633,7 +633,14 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 	end
 
 	LA:D("  " .. tostring(itemID) .. ": price source (before checks): " .. tostring(LA:getPriceSource()))
-    local singleItemValue = LA:GetItemValue(itemID, LA:getPriceSource()) or 0 -- single item
+    local singleItemValue = LA.TSM:GetItemValue(itemID, LA:getPriceSource()) or 0 -- single item
+
+    if TUJMarketInfo then
+    	local o = {}
+    	TUJMarketInfo(itemID, o)
+
+    	LA:print_r(o)
+    end
 		
 	LA:D("  " .. tostring(itemID) .. ": single item value (before checks): " .. tostring(singleItemValue))
 
@@ -653,7 +660,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
     		self:Debug("  poor quality -> VendorSell")
 			LA:D("  " .. tostring(itemID) .. ": poor quality -> price source 'VendorSell'")
 
-			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
+			singleItemValue = LA.TSM:GetItemValue(itemID, "VendorSell") or 0
 		end
 
 		-- special handling for item filter vendor sell
@@ -661,7 +668,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			self:Debug("  item filter vendor -> VendorSell")
 			LA:D("  " .. tostring(itemID) .. ": item filtered by vendor list -> price source 'VendorSell'")
 
-			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
+			singleItemValue = LA.TSM:GetItemValue(itemID, "VendorSell") or 0
 		end
 
 		-- special handling for soulbound items
@@ -669,7 +676,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			self:Debug("  item value = 0 -> soulbound item")
 			LA:D("  " .. tostring(itemID) .. ": soulbound item -> price source 'VendorSell'")
 
-			singleItemValue = LA:GetItemValue(itemID, "VendorSell") or 0
+			singleItemValue = LA.TSM:GetItemValue(itemID, "VendorSell") or 0
 		end
 		
 		LA:D("  " .. tostring(itemID) .. ": single item value (after checks): " .. tostring(singleItemValue))
@@ -691,7 +698,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			LA:incNoteworthyItemCounter(quantity)
 
 			-- print to configured output 'channel'
-			local formattedValue = LA:FormatTextMoney(singleItemValue) or 0
+			local formattedValue = LA.TSM:FormatTextMoney(singleItemValue) or 0
 			LA:Pour(itemLink .. " x" .. quantity .. ": " .. formattedValue)
 
 			-- last noteworthy item ui
@@ -766,7 +773,7 @@ function LA:handleCurrencyLooted(lootedCopper)
 	if MAIN_UI then
 		if LA:isDisplayEnabled("showCurrencyLooted") then
 			-- format the total looted currency and add to main ui
-			local formattedValue = LA:FormatTextMoney(totalLootedCurrency) or 0
+			local formattedValue = LA.TSM:FormatTextMoney(totalLootedCurrency) or 0
 			VALUE_TOTALCURRENCY:SetText(formattedValue)
 		end
 	end
@@ -790,7 +797,7 @@ function LA:saveCurrentLoot()
 				
 			-- Get Information about Item Looted --
 			local itemLink = GetLootSlotLink(i)
-			local itemID = LA:GetItemID(itemLink, true) -- get item id
+			local itemID = LA.TSM:GetItemID(itemLink, true) -- get item id
 
 			local quantity = select(3, GetLootSlotInfo(i))
 
@@ -869,7 +876,7 @@ function LA:ShowLiteWindow()
 	--LITE_UI:EnableResize(false)
 
 	local totalItemValue = currentSession["liv"] or 0
-	LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
+	LITE_UI:SetTitle("|cffffffff" .. LA.TSM:FormatTextMoney(totalItemValue) .. "|r")
 
 	LITE_UI:Show()
 end
@@ -1231,9 +1238,13 @@ end
 
 
 function LA:InGroup() 
-  if IsInRaid() then return "RAID"
-  elseif GetNumGroupMembers() > 0 then return "PARTY"
-  else return nil end
+	if IsInRaid() then 
+		return "RAID"
+	elseif GetNumGroupMembers() > 0 then 
+		return "PARTY"
+	else 
+		return nil 
+	end
 end
 
 
@@ -1289,7 +1300,7 @@ function LA:prepareDataContainer()
 
 	-- ...looted item value (with liv/h)
 	local totalItemValue = currentSession["liv"] or 0
-	local livValue = LA:FormatTextMoney(totalItemValue)
+	local livValue = LA.TSM:FormatTextMoney(totalItemValue)
 	if LA:isDisplayEnabled("showLootedItemValuePerHour") then
 		livValue = livValue .. " (0|cffffd100g|r/h)"
 	end
@@ -1297,7 +1308,7 @@ function LA:prepareDataContainer()
 	VALUE_LOOTEDITEMVALUE = LA:defineRowForFrame(dataContainer, "showLootedItemValue", "Looted Item Value:", livValue)
 
 	-- ...looted currency
-	local formattedTotalLootedCurrency = LA:FormatTextMoney(totalLootedCurrency) or 0
+	local formattedTotalLootedCurrency = LA.TSM:FormatTextMoney(totalLootedCurrency) or 0
 	VALUE_TOTALCURRENCY = LA:defineRowForFrame(dataContainer, "showCurrencyLooted", "Currency Looted:", formattedTotalLootedCurrency)
 
 	-- ...looted item counter
@@ -1440,7 +1451,7 @@ function LA:refreshUIs()
 	if LA:isDisplayEnabled("showLootedItemValuePerHour") and LA:isSessionRunning() then
 		local totalItemValue = currentSession["liv"] or 0
 		if LA:isDisplayEnabled("showLootedItemValue") and VALUE_LOOTEDITEMVALUE then
-			local livValue = LA:FormatTextMoney(totalItemValue)
+			local livValue = LA.TSM:FormatTextMoney(totalItemValue)
 			livValue = livValue .. " (" .. LA:calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 
 			-- add to main ui
@@ -1459,7 +1470,7 @@ function LA:refreshUIs()
 	if LA:isLootAppraiserLiteEnabled() then
 		if LITE_UI then
 			local totalItemValue = currentSession["liv"] or 0
-			LITE_UI:SetTitle("|cffffffff" .. LA:FormatTextMoney(totalItemValue) .. "|r")
+			LITE_UI:SetTitle("|cffffffff" .. LA.TSM:FormatTextMoney(totalItemValue) .. "|r")
 		end
 	end
 end
@@ -1786,7 +1797,7 @@ function LA:NewSession()
 
 	totalLootedCurrency = 0   	-- the total looted currency during a session
 	if VALUE_TOTALCURRENCY ~= nil then
-		VALUE_TOTALCURRENCY:SetText(LA:FormatTextMoney(totalLootedCurrency))
+		VALUE_TOTALCURRENCY:SetText(LA.TSM:FormatTextMoney(totalLootedCurrency))
 	end
 
 	lootedItemCounter = 0			-- counter for looted items
@@ -1845,7 +1856,7 @@ function LA:onBtnDestroyTrashClick()
 
 			-- blacklist
 			if link and LA:isDestroyBlacklistedItems() then
-				local itemID = LA:GetItemID(link)
+				local itemID = LA.TSM:GetItemID(link)
 				if LA:isItemBlacklisted(itemID) then
 					PickupContainerItem(bag, slot)
 					DeleteCursorItem()
@@ -1919,7 +1930,7 @@ function LA:onBtnSellTrashClick()
 			if LA:isSellTrashTsmGroupEnabled() == true then
 				local id = GetContainerItemID(bag, slot)
 				--if id and LA:isItemInList(id, trashItems) then
-				if id and LA:isItemInGroup(id, LA:getSellTrashTsmGroup()) then
+				if id and LA.TSM:isItemInGroup(id, LA:getSellTrashTsmGroup()) then
 					--LA:Debug("  id=" .. id .. ", found=" .. tostring(trashItems["i:" .. id]) .. ", link=" .. link)
 					UseContainerItem(bag, slot)
 					itemsSold = itemsSold + 1
@@ -1931,7 +1942,7 @@ function LA:onBtnSellTrashClick()
 	if itemsSold == 0 then
 		LA:Print("No items sold.")
 	else
-		LA:Print(tostring(itemsSold) .. " item(s) sold") --for " .. LA:FormatTextMoney(moneyEarned))
+		LA:Print(tostring(itemsSold) .. " item(s) sold") --for " .. LA.TSM:FormatTextMoney(moneyEarned))
 	end
 end
 
@@ -2020,7 +2031,7 @@ function LA:addItemValue2LootedItemValue(itemValue)
 	-- show the new value in main ui (if shown)
 	if MAIN_UI then
 		if LA:isDisplayEnabled("showLootedItemValue") then
-			local livValue = LA:FormatTextMoney(totalItemValue)
+			local livValue = LA.TSM:FormatTextMoney(totalItemValue)
 			if LA:isDisplayEnabled("showLootedItemValuePerHour") then
 				livValue = livValue .. " (" .. LA:calcLootedItemValuePerHour() .. "|cffffd100g|r/h)"
 			end
@@ -2046,7 +2057,7 @@ function LA:addItem2LootCollectedList(itemID, link, quantity, marketValue, notew
 	--LA:Debug("addItem2LootCollectedList(itemID=" .. itemID .. ", link=" .. tostring(link) .. ", quantity=" .. quantity .. ")")
 
 	-- prepare text
-	local formattedItemValue = LA:FormatTextMoney(marketValue) or 0
+	local formattedItemValue = LA.TSM:FormatTextMoney(marketValue) or 0
 	local preparedText = " " .. link .. " x" .. quantity .. ": " .. formattedItemValue
 	
 	-- item / link
@@ -2129,7 +2140,7 @@ function LA:isItemBlacklisted(itemID)
 	--local blacklistItems = LA:GetGroupItems(LA:getBlacklistTsmGroup())
 
 	--local result = LA:isItemInList(itemID, blacklistItems)
-	local result = LA:isItemInGroup(itemID, LA:getBlacklistTsmGroup())
+	local result = LA.TSM:isItemInGroup(itemID, LA:getBlacklistTsmGroup())
 	--LA:Debug("  isItemInList=" .. tostring(result))
 	return result
 end
@@ -2434,7 +2445,7 @@ function LA:printSessions()
 				factor = sessionDuration
 			end
 
-			local formattedLiv = LA:FormatTextMoney(liv) or 0
+			local formattedLiv = LA.TSM:FormatTextMoney(liv) or 0
 			LA:Debug("    looted item value: " .. formattedLiv)
 
 			local livGold = floor(liv/10000)
