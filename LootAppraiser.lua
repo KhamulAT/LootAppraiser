@@ -12,8 +12,10 @@ local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date,
 	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string
 
 -- wow APIs
-local _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown =
-      _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown
+local _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut =
+      _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut
+local NUM_BAG_SLOTS, CHAT_FRAME_FADE_TIME, LE_PARTY_CATEGORY_INSTANCE, LE_PARTY_CATEGORY_HOME = 
+      NUM_BAG_SLOTS, CHAT_FRAME_FADE_TIME, LE_PARTY_CATEGORY_INSTANCE, LE_PARTY_CATEGORY_HOME
 
 LA.DEBUG = false
 
@@ -89,6 +91,7 @@ LA.QUALITY_FILTER = { -- little hack to sort them in the menu
 
 -- TSM predefined price sources + 'Custom'
 LA.PRICE_SOURCE = {
+	-- TSM price sources
 	["Custom"] = "Custom Price Source",
 	["DBGlobalHistorical"] = "AuctionDB: Global Historical Price",
 	["DBGlobalMarketAvg"] = "AuctionDB: Global Market Value Avg",
@@ -105,7 +108,14 @@ LA.PRICE_SOURCE = {
 	["wowuctionMarket"] = "wowuction: Realm Market Value",
 	["wowuctionMedian"] = "wowuction: Realm Median Price",
 	["wowuctionRegionMarket"] = "wowuction: Region Market Value",
-	["wowuctionRegionMedian"] = "wowuction: Region Median Price"
+	["wowuctionRegionMedian"] = "wowuction: Region Median Price",
+	-- TUJ price sources
+	["globalMedian"] = "TUJ: Global Median",
+	["globalMean"] = "TUJ: Global Mean",
+	["globalStdDev"] = "TUJ: Global Std Dev",
+	["stddev"] = "TUJ: 14-Day Std Dev",
+	["market"] = "TUJ: 14-Day Price",
+	["recent"] = "TUJ: 3-Day Price",
 };
 
 
@@ -187,6 +197,7 @@ function LA:OnInitialize()
 
 	-- price source check --
 	local priceSources = self.TSM:GetAvailablePriceSources()
+
 	-- only 2 or less price sources -> chat msg: missing modules
 	if self:tablelength(priceSources) <= 2 then
 		-- chat msg
@@ -308,17 +319,6 @@ function LA:OnInitialize()
 end
 
 
-function LA:RegisterModule(theModule)
-	LA:D("RegisterModule")
-
-	if not self.modules then
-		self.modules = {}
-	end
-
-	self.modules[theModule.name] = theModule
-end
-
-
 function LA:OnEnable()
 	LA:Print("ENABLED.")
 
@@ -328,11 +328,14 @@ function LA:OnEnable()
 	LA:RegisterChatCommand("laa", LA.chatCmdGoldAlertTresholdMonitor)
 
 	-- register event for...
-	-- ...loot window open
+	-- ...looting items
 	LA:RegisterEvent("LOOT_READY", LA.OnLootReady)
 	LA:RegisterEvent("BAG_UPDATE", LA.OnBagUpdate)
-
+	-- ...looting currency
 	LA:RegisterEvent("CHAT_MSG_MONEY", LA.OnChatMsgMoney)
+
+	-- register event for reset instance
+	--LA:RegisterEvent("CHAT_MSG_SYSTEM", LA.OnResetInfoEvent)
 	--LA:RegisterEvent("CHAT_MSG_SYSTEM", LA.OnChatMsgSystem)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
@@ -343,11 +346,106 @@ function LA:OnEnable()
 		self:Debug("DEBUG enabled")
 		LA.DEBUG = true
 	end
+
+	--TUJTooltip(true)
 end
+
+
+--[[
+LA.ResetInfo = {}
+local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
+
+function LA.OnResetInfoEvent(e, msg)
+	--LA:D("LA.OnResetInfoEvent")
+
+	if e == "CHAT_MSG_SYSTEM" then
+		if msg:match("^" .. resetmsg .. "$") then
+			LA:D("  match: " .. tostring(msg:match("^" .. resetmsg .. "$")))
+		end
+	end
+end
+
+
+function LA.doExplicitReset(instancemsg, failed)
+	LA:D("LA.doExplicitReset: instancemsg=" .. tostring(instancemsg) .. ", failed=" .. tostring(failed))
+	if HasLFGRestrictions() or IsInInstance() or (LA:InGroup() and not UnitIsGroupLeader("player")) then return end
+	if not failed then
+		LA:D("  ### ich war da ###")
+		LA:HistoryUpdate(true)
+	end
+
+	local reportchan = LA:InGroup()
+	if reportchan then
+		if not failed then
+			--SendAddonMessage(addonName, "GENERATION_ADVANCE", reportchan)
+		end
+		if true then -- vars.db.Tooltip.ReportResets
+			local msg = instancemsg or RESET_INSTANCES
+			msg = msg:gsub("\1241.+;.+;","") -- ticket 76, remove |1;; escapes on koKR
+			SendChatMessage("<LA> "..msg, reportchan)
+		end
+	end
+end
+--hooksecurefunc("ResetInstances", LA.doExplicitReset)
+
+
+local resetfails = { INSTANCE_RESET_FAILED, INSTANCE_RESET_FAILED_OFFLINE, INSTANCE_RESET_FAILED_ZONING }
+for k,v in pairs(resetfails) do 
+  resetfails[k] = v:gsub("%%s",".+")
+end
+local raiddiffmsg = ERR_RAID_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
+local dungdiffmsg = ERR_DUNGEON_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
+local delaytime = 3 -- seconds to wait on zone change for settings to stabilize
+
+function LA.OnChatMsgSystem(f, evt, msg)
+	LA:D("LA.OnChatMsgSystem: evt=" .. tostring(f) .. ", msg=" .. tostring(evt))
+	if evt == "CHAT_MSG_SYSTEM" then
+    	--local msg = ...
+		if msg:match("^"..resetmsg.."$") then -- I performed expicit reset
+			LA.doExplicitReset(msg)
+		elseif msg:match("^"..INSTANCE_SAVED.."$") then -- just got saved
+			LA:ScheduleTimer("HistoryUpdate", delaytime+1)
+		elseif (msg:match("^"..raiddiffmsg.."$") or msg:match("^"..dungdiffmsg.."$")) and 
+			not addon:histZoneKey() then -- ignore difficulty messages when creating a party while inside an instance
+			LA:HistoryUpdate(true)
+		elseif msg:match(TRANSFER_ABORT_TOO_MANY_INSTANCES) then
+			LA:HistoryUpdate(false, true)
+		else
+			for _, m in pairs(resetfails) do 
+				if msg:match("^"..m.."$") then
+					LA.doExplicitReset(msg, true) -- send failure chat message
+				end
+			end
+		end
+    end
+end
+
+
+function LA:InGroup() 
+	if IsInRaid() then 
+		return "RAID"
+	elseif GetNumGroupMembers() > 0 then 
+		return "PARTY"
+	else 
+		return nil 
+	end
+end
+]]
 
 
 function LA:OnDisable()
 	-- nothing to do
+end
+
+
+function LA:RegisterModule(theModule)
+	LA:D("RegisterModule")
+
+	if not self.modules then
+		self.modules = {}
+	end
+
+	self.modules[theModule.name] = theModule
 end
 
 
@@ -635,12 +733,14 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 	LA:D("  " .. tostring(itemID) .. ": price source (before checks): " .. tostring(LA:getPriceSource()))
     local singleItemValue = LA.TSM:GetItemValue(itemID, LA:getPriceSource()) or 0 -- single item
 
+    --[[
     if TUJMarketInfo then
     	local o = {}
     	TUJMarketInfo(itemID, o)
 
     	LA:print_r(o)
     end
+    ]]
 		
 	LA:D("  " .. tostring(itemID) .. ": single item value (before checks): " .. tostring(singleItemValue))
 
@@ -735,6 +835,17 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 				mapCounter = mapCounter + quantity
 			end
 			itemDrops[GetCurrentMapAreaID()] = mapCounter
+
+			-- modules callback
+			if self.modules then
+				for name, data in pairs(self.modules) do
+					if data and data.callback and data.callback.noteworthyItem then
+						local callback = data.callback.noteworthyItem
+
+						callback(itemID)
+					end
+				end
+			end
 
 			-- play sound (if enabled)
 			if LA:isPlaySoundEnabled() then
@@ -1177,73 +1288,6 @@ function LA:ShowMainWindow(showMainUI)
 		if LA:isLootAppraiserTimerUIEnabled() then
 			LA:ShowTimerWindow()
 		end
-	end
-end
-
-
-function LA.doExplicitReset(instancemsg, failed)
-	LA:D("LA.doExplicitReset: instancemsg=" .. tostring(instancemsg) .. ", failed=" .. tostring(failed))
-	if HasLFGRestrictions() or IsInInstance() or (LA:InGroup() and not UnitIsGroupLeader("player")) then return end
-	if not failed then
-		LA:D("  ### ich war da ###")
-		LA:HistoryUpdate(true)
-	end
-
-	local reportchan = LA:InGroup()
-	if reportchan then
-		if not failed then
-			--SendAddonMessage(addonName, "GENERATION_ADVANCE", reportchan)
-		end
-		if true then -- vars.db.Tooltip.ReportResets
-			local msg = instancemsg or RESET_INSTANCES
-			msg = msg:gsub("\1241.+;.+;","") -- ticket 76, remove |1;; escapes on koKR
-			SendChatMessage("<LA> "..msg, reportchan)
-		end
-	end
-end
---hooksecurefunc("ResetInstances", LA.doExplicitReset)
-
-
-local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
-local resetfails = { INSTANCE_RESET_FAILED, INSTANCE_RESET_FAILED_OFFLINE, INSTANCE_RESET_FAILED_ZONING }
-for k,v in pairs(resetfails) do 
-  resetfails[k] = v:gsub("%%s",".+")
-end
-local raiddiffmsg = ERR_RAID_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
-local dungdiffmsg = ERR_DUNGEON_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
-local delaytime = 3 -- seconds to wait on zone change for settings to stabilize
-
-function LA.OnChatMsgSystem(f, evt, msg)
-	LA:D("LA.OnChatMsgSystem: evt=" .. tostring(f) .. ", msg=" .. tostring(evt))
-	if evt == "CHAT_MSG_SYSTEM" then
-    	--local msg = ...
-		if msg:match("^"..resetmsg.."$") then -- I performed expicit reset
-			LA.doExplicitReset(msg)
-		elseif msg:match("^"..INSTANCE_SAVED.."$") then -- just got saved
-			LA:ScheduleTimer("HistoryUpdate", delaytime+1)
-		elseif (msg:match("^"..raiddiffmsg.."$") or msg:match("^"..dungdiffmsg.."$")) and 
-			not addon:histZoneKey() then -- ignore difficulty messages when creating a party while inside an instance
-			LA:HistoryUpdate(true)
-		elseif msg:match(TRANSFER_ABORT_TOO_MANY_INSTANCES) then
-			LA:HistoryUpdate(false, true)
-		else
-			for _, m in pairs(resetfails) do 
-				if msg:match("^"..m.."$") then
-					LA.doExplicitReset(msg, true) -- send failure chat message
-				end
-			end
-		end
-    end
-end
-
-
-function LA:InGroup() 
-	if IsInRaid() then 
-		return "RAID"
-	elseif GetNumGroupMembers() > 0 then 
-		return "PARTY"
-	else 
-		return nil 
 	end
 end
 
@@ -2223,12 +2267,7 @@ function LA:getPriceSource()
 		self.db.profile.pricesource.source = self.dbDefaults.profile.pricesource.source
 	end
 
-	local priceSource = self.db.profile.pricesource.source
-	--if priceSource == "Custom" then
-	--	priceSource = self.db.profile.pricesource.customPriceSource
-	--end
-
-	return priceSource
+	return self.db.profile.pricesource.source
 end
 
 function LA:getCustomPriceSource()

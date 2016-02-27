@@ -13,6 +13,11 @@ local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort = 
 	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort
 
+-- wow APIs
+local InterfaceOptions_AddCategory, GetMapNameByID, SecondsToTime, GameFontHighlightSmall, GetItemInfo = 
+      InterfaceOptions_AddCategory, GetMapNameByID, SecondsToTime, GameFontHighlightSmall, GetItemInfo
+local DEFAULT_CHAT_FRAME = 
+      DEFAULT_CHAT_FRAME
 
 Config.SESSIONDATA_GROUPBY = {
 	["datetime"] = "Date", 
@@ -112,7 +117,6 @@ local options = {
 					order = 50,
 					name = "Price Source",
 					get = function(info) 
-						--LA:print_r(LA.TSM:GetAvailablePriceSources())
 						return LA.db.profile.pricesource[info[#info]] 
 					end,
 					set = function(info, value) 
