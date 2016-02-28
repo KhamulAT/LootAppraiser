@@ -29,7 +29,7 @@ Config.SESSIONDATA_GROUPBY = {
 local options = {
 	type = "group",
 	args = {
-		general = { type = "group", name = LootAppraiser, childGroups = "tab",
+		general = { type = "group", name = LootAppraiser .. " " .. LA.METADATA.VERSION, childGroups = "tab",
 			get = function(info) return LA.db.profile[info[#info]] end,
 			set = function(info, value) 
 				LA.db.profile[info[#info]] = value;
