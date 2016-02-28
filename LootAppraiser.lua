@@ -836,17 +836,6 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 			end
 			itemDrops[GetCurrentMapAreaID()] = mapCounter
 
-			-- modules callback
-			if self.modules then
-				for name, data in pairs(self.modules) do
-					if data and data.callback and data.callback.noteworthyItem then
-						local callback = data.callback.noteworthyItem
-
-						callback(itemID)
-					end
-				end
-			end
-
 			-- play sound (if enabled)
 			if LA:isPlaySoundEnabled() then
 				--PlaySound("AuctionWindowOpen", "master");
@@ -866,6 +855,17 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 		end
 
 		LA:refreshUIs()
+
+		-- modules callback
+		if self.modules then
+			for name, data in pairs(self.modules) do
+				if data and data.callback and data.callback.itemDrop then
+					local callback = data.callback.itemDrop
+
+					callback(itemID)
+				end
+			end
+		end
 	else
 		self:Debug("  item quality to low -> ignored")
 		LA:D("  " .. tostring(itemID) .. ": item quality (" .. tostring(quality) .. ") < filter (" .. LA:getQualityFilter() .. ") -> ignore item")
