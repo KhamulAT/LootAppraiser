@@ -61,6 +61,9 @@ local options = {
 								LA.db.profile.general[info[#info]] = value;
 								LA:refreshStatusText()
 							end,
+							disabled = function(info)
+								return not Config:SettingsChangeAllowed(info[#info])
+							end,
 						},
 						spacer = {
 							type = "description", 
@@ -128,10 +131,7 @@ local options = {
 							order = 20,
 							name = "Price Source",
 							desc = "TSM predefined price sources for item value calculation.",
-							--values = LA.PRICE_SOURCE,
-							values = function()
-								return LA.TSM:GetAvailablePriceSources()
-							end,
+							values = function() return LA.TSM:GetAvailablePriceSources() end,
 							width = "double",
 							set = function(info, value) 
 								local oldValue = LA.db.profile.pricesource[info[#info]]
@@ -140,6 +140,9 @@ local options = {
 								end
 								LA.db.profile.pricesource[info[#info]] = value;
 								LA:refreshStatusText()
+							end,
+							disabled = function(info)
+								return not Config:SettingsChangeAllowed(info[#info])
 							end,
 						},
 						customPriceSource = {
@@ -278,6 +281,9 @@ local options = {
 								local oldValue = LA.db.profile.blacklist[info[#info]]
 								if oldValue ~= value then LA:Print("Blacklist items via TSM group: " .. Config:formatBoolean(value) .. ".") end
 								LA.db.profile.blacklist[info[#info]] = value;
+							end,
+							disabled = function(info)
+								return not Config:SettingsChangeAllowed(info[#info])
 							end,
 						},
 						tsmGroup = {
@@ -867,6 +873,20 @@ end
 
 
 function Config:deleteStatisticEntry(entryID)
-	LA:Debug("  deleteStatisticEntry: entryID=" .. tostring(entryID))
+	--LA:Debug("  deleteStatisticEntry: entryID=" .. tostring(entryID))
 end
 
+
+function Config:SettingsChangeAllowed(setting)
+	LA:D("SettingsChangeAllowed: name=" .. tostring(setting))
+	if LA.regModules then
+		for name, data in pairs(LA.regModules) do
+			if data and data.callback and data.callback.settingsChangeAllowed then
+				local callback = data.callback.settingsChangeAllowed
+
+				return callback(setting)
+			end
+		end
+	end
+	return true -- default
+end

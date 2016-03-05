@@ -297,8 +297,8 @@ function LA:OnInitialize()
 			end
 
 			-- if module present we add the additional modul informations
-			if self.modules then
-				for name, module in pairs(self.modules) do
+			if self.regModules then
+				for name, module in pairs(self.regModules) do
 					if module.icon and module.icon.tooltip then
 						-- add lines
 						tooltip:AddLine(" ") -- spacer
@@ -441,11 +441,11 @@ end
 function LA:RegisterModule(theModule)
 	LA:D("RegisterModule")
 
-	if not self.modules then
-		self.modules = {}
+	if not self.regModules then
+		self.regModules = {}
 	end
 
-	self.modules[theModule.name] = theModule
+	self.regModules[theModule.name] = theModule
 end
 
 
@@ -857,8 +857,8 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 		LA:refreshUIs()
 
 		-- modules callback
-		if self.modules then
-			for name, data in pairs(self.modules) do
+		if self.regModules then
+			for name, data in pairs(self.regModules) do
 				if data and data.callback and data.callback.itemDrop then
 					local callback = data.callback.itemDrop
 
@@ -2416,7 +2416,21 @@ end
 
 function LA:D(msg, ...)
 	if self:isDebugOutputEnabled() then
-		self:Printf(msg, ...)
+		--self:Printf(msg, ...)
+
+		local tab = -1
+		for i = 1,10 do
+			--self:Printf(" name=%s", tostring(GetChatWindowInfo(i)))
+			if GetChatWindowInfo(i)=="LADebug" then
+				tab = i
+				break
+			end
+		end
+
+		if(tab ~= -1) then
+			--_G["ChatFrame"..tab]:AddMessage(...)
+			self:Printf(_G["ChatFrame"..tab], msg, ...)
+		end
 	end
 end
 
