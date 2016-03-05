@@ -862,7 +862,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 				if data and data.callback and data.callback.itemDrop then
 					local callback = data.callback.itemDrop
 
-					callback(itemID)
+					callback(itemID, singleItemValue)
 				end
 			end
 		end
