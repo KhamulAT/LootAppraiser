@@ -1164,6 +1164,11 @@ function LA:ShowMainWindow(showMainUI)
     		if mainUItotal >= 1 then
     			LA:refreshUIs()
 		        mainUItotal = 0
+
+				-- set text
+				if BUTTON_RESETINSTANCES then
+					BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)")
+				end
 		    end	
 		end
 	)
@@ -1279,6 +1284,14 @@ function LA:ShowMainWindow(showMainUI)
 		)
 		BUTTON_RESETINSTANCES:SetCallback("OnEnter", 
 			function()
+				-- clear list
+				for endTime, instanceName in pairs(LA.ResetInfo) do
+					if endTime < time() then
+						LA.ResetInfo[endTime] = nil
+					end
+				end
+
+				-- prepare tooltip
 				GameTooltip:ClearLines()
 				GameTooltip:SetOwner(MAIN_UI.frame, "ANCHOR_CURSOR")  -- LootAppraiser.GUI is the AceGUI-Frame but we need the real frame
 				
