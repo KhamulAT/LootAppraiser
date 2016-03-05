@@ -327,6 +327,8 @@ function LA:OnEnable()
 	LA:RegisterChatCommand("lal", LA.chatCmdLootAppraiserLite)
 	LA:RegisterChatCommand("laa", LA.chatCmdGoldAlertTresholdMonitor)
 
+	LA:RegisterChatCommand("lat", LA.test)
+
 	-- register event for...
 	-- ...looting items
 	LA:RegisterEvent("LOOT_READY", LA.OnLootReady)
@@ -336,7 +338,7 @@ function LA:OnEnable()
 
 	-- register event for reset instance
 	--LA:RegisterEvent("CHAT_MSG_SYSTEM", LA.OnResetInfoEvent)
-	--LA:RegisterEvent("CHAT_MSG_SYSTEM", LA.OnChatMsgSystem)
+	LA:RegisterEvent("CHAT_MSG_SYSTEM", LA.OnChatMsgSystem)
 
 	-- set DEBUG=true if player is Netatik-Antonidas --
 	local nameString = GetUnitName("player", true)
@@ -350,22 +352,38 @@ function LA:OnEnable()
 	--TUJTooltip(true)
 end
 
+function LA.test()
+	LA.OnChatMsgSystem("CHAT_MSG_SYSTEM", "'Hügel der Klingenhauer' wurde zurückgesetzt.")
+end
 
---[[
+
+--[[-------------------------------------------------------------------------------------
+-- reset instance historie
+---------------------------------------------------------------------------------------]]
 LA.ResetInfo = {}
 local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
 
-function LA.OnResetInfoEvent(e, msg)
-	--LA:D("LA.OnResetInfoEvent")
+function LA.OnChatMsgSystem(event, msg)
+	LA:D("LA.OnResetInfoEvent: msg=%s", tostring(msg))
+	LA:D("  org=%s", tostring(INSTANCE_RESET_SUCCESS))
+	LA:D("  chg=%s", tostring(resetmsg))
 
-	if e == "CHAT_MSG_SYSTEM" then
+	if event == "CHAT_MSG_SYSTEM" then
+		--local name = string.match(msg, INSTANCE_RESET_SUCCESS:gsub("%%s","(.+)"))
+		--LA:D("  name=%s", name)
 		if msg:match("^" .. resetmsg .. "$") then
 			LA:D("  match: " .. tostring(msg:match("^" .. resetmsg .. "$")))
+
+			local instanceName = string.match(msg, INSTANCE_RESET_SUCCESS:gsub("%%s","(.+)"))
+			LA.ResetInfo[time() + 60*60] = instanceName
+
+			BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
 		end
 	end
 end
 
 
+--[[
 function LA.doExplicitReset(instancemsg, failed)
 	LA:D("LA.doExplicitReset: instancemsg=" .. tostring(instancemsg) .. ", failed=" .. tostring(failed))
 	if HasLFGRestrictions() or IsInInstance() or (LA:InGroup() and not UnitIsGroupLeader("player")) then return end
@@ -1253,10 +1271,32 @@ function LA:ShowMainWindow(showMainUI)
 	if LA:isDisplayEnabled("showResetInstanceButton") then
 		BUTTON_RESETINSTANCES = AceGUI:Create("Button")
 		BUTTON_RESETINSTANCES:SetAutoWidth(true)
-		BUTTON_RESETINSTANCES:SetText("Reset Instances")
+		BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
 		BUTTON_RESETINSTANCES:SetCallback("OnClick", 
 			function()
 				LA:onBtnResetInstancesClick()
+			end
+		)
+		BUTTON_RESETINSTANCES:SetCallback("OnEnter", 
+			function()
+				GameTooltip:ClearLines()
+				GameTooltip:SetOwner(MAIN_UI.frame, "ANCHOR_CURSOR")  -- LootAppraiser.GUI is the AceGUI-Frame but we need the real frame
+				
+				GameTooltip:AddLine("Instance lockouts")
+				if LA:tablelength(LA.ResetInfo) > 0 then
+					for endTime, instanceName in pairs(LA.ResetInfo) do
+						GameTooltip:AddDoubleLine("|cffffffff" .. instanceName .. "|r", "|cffffffff" .. date("!%X", endTime - time()) .. "|r")
+					end
+				else
+					GameTooltip:AddLine("|cffffffffNone|r")
+				end
+
+				GameTooltip:Show()
+			end
+		)
+		BUTTON_RESETINSTANCES:SetCallback("OnLeave", 
+			function()
+				GameTooltip:Hide()
 			end
 		)
 		MAIN_UI:AddChild(BUTTON_RESETINSTANCES)
@@ -1620,7 +1660,7 @@ function LA:print_r ( t )
     else
         sub_print_r(t,"  ")
     end
-    LA:D()
+    LA:D("")
 end
 
 --[[-------------------------------------------------------------------------------------
@@ -1933,6 +1973,8 @@ function LA:onBtnResetInstancesClick()
 	if inInstanceGroup or inInstanceGroupRealm then 
 		SendChatMessage("Instances have been reset.","PARTY", nil)
 	end
+
+	LA:print_r(LA.ResetInfo)
 end
 
 

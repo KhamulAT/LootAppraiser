@@ -348,6 +348,7 @@ local options = {
 								showItemsLooted = { type = "toggle", order = 60, name = "Show 'Items Looted'", desc = "Show 'Items Looted'", width = "double", },
 								showNoteworthyItems = { type = "toggle", order = 70, name = "Show 'Noteworthy Items'", desc = "Show 'Noteworthy Items'", width = "double", },
 								showResetInstanceButton = { type = "toggle", order = 80, name = "Show 'Reset Instance' Button (/reload necessary)", desc = "Show 'Reset Instance' Button", width = "double", set = function(info, value) LA.db.profile.display[info[#info]] = value end, },
+								descResetInstanceButton = { type = "description", order = 85, fontSize = "medium", name = "The displayed instance lockout should only help to optimize the 10 instance resets per hour. Not more and not less. No lockout magic, cross char tracking or such stuff. Those who want more should install the addon SavedInstances from Curse.", width = "full", },
 							},
 							plugins = {},
 						},
