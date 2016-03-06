@@ -364,13 +364,7 @@ LA.ResetInfo = {}
 local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
 
 function LA.OnChatMsgSystem(event, msg)
-	LA:D("LA.OnResetInfoEvent: msg=%s", tostring(msg))
-	LA:D("  org=%s", tostring(INSTANCE_RESET_SUCCESS))
-	LA:D("  chg=%s", tostring(resetmsg))
-
 	if event == "CHAT_MSG_SYSTEM" then
-		--local name = string.match(msg, INSTANCE_RESET_SUCCESS:gsub("%%s","(.+)"))
-		--LA:D("  name=%s", name)
 		if msg:match("^" .. resetmsg .. "$") then
 			LA:D("  match: " .. tostring(msg:match("^" .. resetmsg .. "$")))
 
