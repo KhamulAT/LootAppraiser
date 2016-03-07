@@ -371,7 +371,9 @@ function LA.OnChatMsgSystem(event, msg)
 			local instanceName = string.match(msg, INSTANCE_RESET_SUCCESS:gsub("%%s","(.+)"))
 			LA.ResetInfo[time() + 60*60] = instanceName
 
-			BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
+			if BUTTON_RESETINSTANCES then
+				BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
+			end
 		end
 	end
 end
