@@ -6,11 +6,8 @@ local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date,
 	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, sort
 
 
-local TSM = LibStub("AceAddon-3.0"):GetAddon("TradeSkillMaster")
-if not TSM then return end
-
 local TSMAPI = _G.TSMAPI;
-local TSMVERSION = TSM._version;
+local TSMVERSION = GetAddOnMetadata("TradeSkillMaster", "Version")
 
 LA.TSM = LA.TSM or {}
 LA.TSM.v3 = string.startsWith("" .. TSMVERSION, "v3") or string.startsWith("" .. TSMVERSION, "3X")

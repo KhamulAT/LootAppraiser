@@ -372,7 +372,7 @@ function LA.OnChatMsgSystem(event, msg)
 			LA.ResetInfo[time() + 60*60] = instanceName
 
 			if BUTTON_RESETINSTANCES then
-				BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
+				BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/9)") -- add lockouts
 			end
 		end
 	end
@@ -1163,7 +1163,7 @@ function LA:ShowMainWindow(showMainUI)
 
 				-- set text
 				if BUTTON_RESETINSTANCES then
-					BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)")
+					BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/9)")
 				end
 		    end	
 		end
