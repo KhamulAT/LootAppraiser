@@ -12,7 +12,7 @@ local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date,
 -- AceAddon-3.0 - module standard methods
 ---------------------------------------------------------------------------------------]]
 function SalvageCrate:OnInitialize()
-	LA:Debug("SalvageCrate:OnInitialize()")
+	LA:D("SalvageCrate:OnInitialize()")
 
 end
 

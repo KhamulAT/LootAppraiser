@@ -412,7 +412,7 @@ local options = {
 local statisticFrame
 
 function Config:OnInitialize()
-	LA:Debug("Config:OnInitialize()")
+	LA:D("Config:OnInitialize()")
 
 	-- register sounds
 	LSM:Register("sound", "Auction Window Open", "Sound/Interface/AuctionWindowOpen.ogg")

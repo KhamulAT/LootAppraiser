@@ -191,9 +191,9 @@ end
 -- AceAddon-3.0 standard methods
 ---------------------------------------------------------------------------------------]]
 function LA:OnInitialize()
-	self:Debug("LA:OnInitialize()")
-
 	self:initDB()
+
+	self:D("LA:OnInitialize()")
 
 	-- price source check --
 	local priceSources = self.TSM:GetAvailablePriceSources()
@@ -1248,8 +1248,28 @@ function LA:ShowMainWindow(showMainUI)
 	BUTTON_NEWSESSION:SetAutoWidth(true)
 	BUTTON_NEWSESSION:SetText("New Session")
 	BUTTON_NEWSESSION:SetCallback("OnClick", function()
-		LA:onBtnNewSessionClick()
+		if IsShiftKeyDown() then
+			LA:onBtnNewSessionClick()
+		else
+			PlaySound("UI_Garrison_ArchitectTable_BuildingPlacementError", "master");
+		end
 	end)
+	BUTTON_NEWSESSION:SetCallback("OnEnter", 
+		function()
+			-- prepare tooltip
+			GameTooltip:ClearLines()
+			GameTooltip:SetOwner(MAIN_UI.frame, "ANCHOR_CURSOR")  -- LootAppraiser.GUI is the AceGUI-Frame but we need the real frame
+			GameTooltip:AddLine("New Session")
+			GameTooltip:AddLine("|cffffffffHold 'shift' and click button|r")
+			GameTooltip:AddLine("|cffffffffto start a new session|r")
+			GameTooltip:Show()
+		end
+	)
+	BUTTON_NEWSESSION:SetCallback("OnLeave", 
+		function()
+			GameTooltip:Hide()
+		end
+	)
 	MAIN_UI:AddChild(BUTTON_NEWSESSION)
 
 	-- button stop session --
