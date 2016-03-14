@@ -360,16 +360,21 @@ end
 --[[-------------------------------------------------------------------------------------
 -- reset instance historie
 ---------------------------------------------------------------------------------------]]
-LA.ResetInfo = {}
+
 local resetmsg = INSTANCE_RESET_SUCCESS:gsub("%%s",".+")
 
 function LA.OnChatMsgSystem(event, msg)
 	if event == "CHAT_MSG_SYSTEM" then
 		if msg:match("^" .. resetmsg .. "$") then
+			LA.ResetInfo = LA.ResetInfo or {}
+
 			LA:D("  match: " .. tostring(msg:match("^" .. resetmsg .. "$")))
 
 			local instanceName = string.match(msg, INSTANCE_RESET_SUCCESS:gsub("%%s","(.+)"))
-			LA.ResetInfo[time() + 60*60] = instanceName
+
+			local data = {["endTime"] = time() + 60*60, ["instanceName"] = instanceName}
+
+			table.insert(LA.ResetInfo, data)
 
 			if BUTTON_RESETINSTANCES then
 				BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/9)") -- add lockouts
@@ -1163,6 +1168,8 @@ function LA:ShowMainWindow(showMainUI)
 
 				-- set text
 				if BUTTON_RESETINSTANCES then
+					LA.ResetInfo = LA.ResetInfo or {}
+
 					BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/9)")
 				end
 		    end	
@@ -1290,9 +1297,11 @@ function LA:ShowMainWindow(showMainUI)
 
 	-- button reset instances --
 	if LA:isDisplayEnabled("showResetInstanceButton") then
+		LA.ResetInfo = LA.ResetInfo or {}
+
 		BUTTON_RESETINSTANCES = AceGUI:Create("Button")
 		BUTTON_RESETINSTANCES:SetAutoWidth(true)
-		BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/10)") -- add lockouts
+		BUTTON_RESETINSTANCES:SetText("Reset Instances (" .. LA:tablelength(LA.ResetInfo) .. "/9)") -- add lockouts
 		BUTTON_RESETINSTANCES:SetCallback("OnClick", 
 			function()
 				LA:onBtnResetInstancesClick()
@@ -1300,12 +1309,19 @@ function LA:ShowMainWindow(showMainUI)
 		)
 		BUTTON_RESETINSTANCES:SetCallback("OnEnter", 
 			function()
-				-- clear list
-				for endTime, instanceName in pairs(LA.ResetInfo) do
-					if endTime < time() then
-						LA.ResetInfo[endTime] = nil
+				-- remove old entries
+				for k, data in pairs(LA.ResetInfo) do
+					if data.endTime < time() then
+						LA.ResetInfo[k] = nil
 					end
 				end
+
+				-- sort list
+				sort(LA.ResetInfo, 
+					function(a, b) 
+						return a.endTime < b.endTime
+					end
+				)
 
 				-- prepare tooltip
 				GameTooltip:ClearLines()
@@ -1313,8 +1329,8 @@ function LA:ShowMainWindow(showMainUI)
 				
 				GameTooltip:AddLine("Instance lockouts")
 				if LA:tablelength(LA.ResetInfo) > 0 then
-					for endTime, instanceName in pairs(LA.ResetInfo) do
-						GameTooltip:AddDoubleLine("|cffffffff" .. instanceName .. "|r", "|cffffffff" .. date("!%X", endTime - time()) .. "|r")
+					for k, data in pairs(LA.ResetInfo) do
+						GameTooltip:AddDoubleLine("|cffffffff" .. data.instanceName .. "|r", "|cffffffff" .. date("!%X", data.endTime - time()) .. "|r")
 					end
 				else
 					GameTooltip:AddLine("|cffffffffNone|r")
