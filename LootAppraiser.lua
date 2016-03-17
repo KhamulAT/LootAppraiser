@@ -78,7 +78,7 @@ local ITEM_FILTER_BLACKLIST = {
 	["20858"] = true, ["20859"] = true, ["20860"] = true, ["20861"] = true, ["20862"] = true, ["20863"] = true, ["20864"] = true, ["20865"] = true, 
 	["20874"] = true, ["20866"] = true, ["20868"] = true, ["20869"] = true, ["20870"] = true, ["20871"] = true, ["20872"] = true, ["20873"] = true, 
 	["20867"] = true, ["20875"] = true, ["20876"] = true, ["20877"] = true,	["20878"] = true, ["20879"] = true, ["20881"] = true, ["20882"] = true, 
-	["19183"] = true, ["18640"] = true, ["8623"]  = true, ["114120"] = true, ["114116"] = true, ["9243"] = true
+	["19183"] = true, ["18640"] = true, ["8623"]  = true, ["9243"] = true
 }
 
 LA.QUALITY_FILTER = { -- little hack to sort them in the menu
