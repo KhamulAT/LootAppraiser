@@ -240,24 +240,28 @@ function LA:OnInitialize()
 			if button == "LeftButton" then
 				local isShiftKeyDown = IsShiftKeyDown()
 				if isShiftKeyDown then
-
+					local callback = LA:GetMinimapIconModulCallback("LeftButton", "Shift")
+					if callback then
+						callback()
+					end
 				else
+					if not LA:isSessionRunning() then
+				        LA:StartSession(true)        
+				    end
 
+				    LA:ShowMainWindow(true)
 				end
-
-				if not LA:isSessionRunning() then
-			        LA:StartSession(true)        
-			    end
-
-			    LA:ShowMainWindow(true)
-
-
-
 			elseif button == "RightButton" then
-				LA:Print("Open LootAppraiser Configuration")
-
-				InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
-				InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
+				local isShiftKeyDown = IsShiftKeyDown()
+				if isShiftKeyDown then
+					local callback = LA:GetMinimapIconModulCallback("RightButton", "Shift")
+					if callback then
+						callback()
+					end
+				else
+					InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
+					InterfaceOptionsFrame_OpenToCategory(LA.METADATA.NAME)
+				end
 			end
 		end,
 
@@ -316,6 +320,24 @@ function LA:OnInitialize()
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
 	GameTooltip:HookScript("OnTooltipSetItem", OnTooltipSetItem)
+end
+
+
+function LA:GetMinimapIconModulCallback(button, modifier)
+	-- if modules present we add the additional callbacks
+	if not self.regModules then return end
+
+	for name, module in pairs(self.regModules) do
+		if module.icon and module.icon.action then
+			for _, action in pairs(module.icon.action) do
+				if action.button == button then
+					if action.modifier == modifier then
+						return action.callback
+					end
+				end
+			end
+		end
+	end
 end
 
 
