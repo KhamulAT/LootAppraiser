@@ -384,74 +384,6 @@ function LA.OnChatMsgSystem(event, msg)
 end
 
 
---[[
-function LA.doExplicitReset(instancemsg, failed)
-	LA:D("LA.doExplicitReset: instancemsg=" .. tostring(instancemsg) .. ", failed=" .. tostring(failed))
-	if HasLFGRestrictions() or IsInInstance() or (LA:InGroup() and not UnitIsGroupLeader("player")) then return end
-	if not failed then
-		LA:D("  ### ich war da ###")
-		LA:HistoryUpdate(true)
-	end
-
-	local reportchan = LA:InGroup()
-	if reportchan then
-		if not failed then
-			--SendAddonMessage(addonName, "GENERATION_ADVANCE", reportchan)
-		end
-		if true then -- vars.db.Tooltip.ReportResets
-			local msg = instancemsg or RESET_INSTANCES
-			msg = msg:gsub("\1241.+;.+;","") -- ticket 76, remove |1;; escapes on koKR
-			SendChatMessage("<LA> "..msg, reportchan)
-		end
-	end
-end
---hooksecurefunc("ResetInstances", LA.doExplicitReset)
-
-
-local resetfails = { INSTANCE_RESET_FAILED, INSTANCE_RESET_FAILED_OFFLINE, INSTANCE_RESET_FAILED_ZONING }
-for k,v in pairs(resetfails) do 
-  resetfails[k] = v:gsub("%%s",".+")
-end
-local raiddiffmsg = ERR_RAID_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
-local dungdiffmsg = ERR_DUNGEON_DIFFICULTY_CHANGED_S:gsub("%%s",".+")
-local delaytime = 3 -- seconds to wait on zone change for settings to stabilize
-
-function LA.OnChatMsgSystem(f, evt, msg)
-	LA:D("LA.OnChatMsgSystem: evt=" .. tostring(f) .. ", msg=" .. tostring(evt))
-	if evt == "CHAT_MSG_SYSTEM" then
-    	--local msg = ...
-		if msg:match("^"..resetmsg.."$") then -- I performed expicit reset
-			LA.doExplicitReset(msg)
-		elseif msg:match("^"..INSTANCE_SAVED.."$") then -- just got saved
-			LA:ScheduleTimer("HistoryUpdate", delaytime+1)
-		elseif (msg:match("^"..raiddiffmsg.."$") or msg:match("^"..dungdiffmsg.."$")) and 
-			not addon:histZoneKey() then -- ignore difficulty messages when creating a party while inside an instance
-			LA:HistoryUpdate(true)
-		elseif msg:match(TRANSFER_ABORT_TOO_MANY_INSTANCES) then
-			LA:HistoryUpdate(false, true)
-		else
-			for _, m in pairs(resetfails) do 
-				if msg:match("^"..m.."$") then
-					LA.doExplicitReset(msg, true) -- send failure chat message
-				end
-			end
-		end
-    end
-end
-
-
-function LA:InGroup() 
-	if IsInRaid() then 
-		return "RAID"
-	elseif GetNumGroupMembers() > 0 then 
-		return "PARTY"
-	else 
-		return nil 
-	end
-end
-]]
-
-
 function LA:OnDisable()
 	-- nothing to do
 end
@@ -616,18 +548,18 @@ function LA.OnBagUpdate(event, bagID)
 			-- check against saved loot
 			local data = currentSavedLoot[currentItemID]
 			if data ~= nil then
-				if data["multiNonStackItem"] == true then
-					--LA:D("  |cffff0000non-stackable item -> not removing|r")
-				else
+				--if data["multiNonStackItem"] == true then
+				--	LA:D("  |cffff0000non-stackable item -> not removing|r")
+				--else
 					currentSavedLoot[currentItemID] = nil -- remove from saved loot
-				end
+				--end
 
 				local itemLink = data["link"]
 				local quantity = data["quantity"]
 				local itemID = data["itemID"]
 
 				LA:D("    handle item %s", data["link"])
-				LA:handleItemLooted(itemLink, itemID, quantity)
+				LA:handleItemLooted(itemLink, itemID, quantity, data)
 			else
 				LA:D("    ignore bag update of item " .. tostring(currentItemID))
 			end
@@ -667,16 +599,30 @@ function LA.OnLootReady( ... )
 			local slotType = GetLootSlotType(i)
 
 			if slotType == 1 then
+				local data = {}
+
+				local lootSources = {GetLootSourceInfo(i)}				
+				if lootSources then
+					-- if guid starts with 'Item-...' it is maybe from a lockbox
+					local corpseGUID, count = unpack(lootSources)
+					if corpseGUID then
+						data["corpseGUID"] = corpseGUID
+					end
+
+					--if string.startsWith(corpseGUID, "Item-") then
+					--	LA:D("  |cffff0000Schließkassette!!!|r")
+					--end
+				end
+				
 				-- item looted
 				local itemLink = GetLootSlotLink(i)
 				local itemID = LA.TSM:GetItemID(itemLink, true) -- get item id
 
 				local quantity = select(3, GetLootSlotInfo(i))
 
-				local data = {}
 				data["link"] = itemLink
-				data["quantity"] = quantity
 				data["itemID"] = itemID
+				data["quantity"] = quantity
 
 				-- check for already existing itemID
 				if currentSavedLoot[itemID] then
@@ -734,7 +680,7 @@ end
 -- the main logic for item processing
 ---------------------------------------------------------------------------------------]]
 local mapIDItemCount = {}
-function LA:handleItemLooted(itemLink, itemID, quantity)
+function LA:handleItemLooted(itemLink, itemID, quantity, data)
 	self:Debug("handleItemLooted itemID=%s", itemID)
 	LA:D("  " .. tostring(itemID) .. ": handle item: " .. itemLink .. " x" .. tostring(quantity))
 
@@ -881,7 +827,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity)
 				if data and data.callback and data.callback.itemDrop then
 					local callback = data.callback.itemDrop
 
-					callback(itemID, singleItemValue)
+					callback(itemID, singleItemValue, data)
 				end
 			end
 		end
@@ -1310,11 +1256,14 @@ function LA:ShowMainWindow(showMainUI)
 		BUTTON_RESETINSTANCES:SetCallback("OnEnter", 
 			function()
 				-- remove old entries
+				local copy = {}
 				for k, data in pairs(LA.ResetInfo) do
-					if data.endTime < time() then
-						LA.ResetInfo[k] = nil
+					if data.endTime >= time() then
+						copy[k] = data
 					end
 				end
+
+				LA.ResetInfo = copy
 
 				-- sort list
 				sort(LA.ResetInfo, 
@@ -1743,7 +1692,7 @@ function LA:StartSession(showMainUI)
 				local itemLink = data["link"]
 				local quantity = data["quantity"]
 
-				LA:handleItemLooted(itemLink, itemID, quantity)
+				LA:handleItemLooted(itemLink, itemID, quantity, data)
 			end
 		end
 
