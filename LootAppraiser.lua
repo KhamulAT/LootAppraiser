@@ -198,11 +198,33 @@ function LA:OnInitialize()
 	-- price source check --
 	local priceSources = self.TSM:GetAvailablePriceSources()
 
+	-- pop up window
+	self.errorFrame = AceGUI:Create("Window")
+	self.errorFrame:Hide()
+	self.errorFrame:SetLayout("Flow")
+	self.errorFrame:SetTitle("LootAppraiser: |cffff0000ERROR|r")
+	self.errorFrame:SetPoint("CENTER")
+	self.errorFrame:SetWidth(350)
+	self.errorFrame:SetHeight(180)
+	self.errorFrame:EnableResize(false)
+	self.errorFrame:SetCallback("OnClose",
+		function(widget) 
+			AceGUI:Release(widget)
+			self:Disable()
+		end
+	)
+
 	-- only 2 or less price sources -> chat msg: missing modules
 	if self:tablelength(priceSources) <= 2 then
+		local text = AceGUI:Create("LALabel")
+		text:SetText("|cffff0000Attention!|r Missing TSM Modules for additional price sources (e.g. like TradeSkillMaster_AuctionDB for AuctionDB price sources).\n\n|cffff0000LootAppraiser disabled.|r")
+		text:SetFont(GameFontNormal:GetFont())
+		text:SetWidth(340)
+		self.errorFrame:AddChild(text)
+
 		-- chat msg
-		self:Print("|cffff0000Attention!|r Missing TSM Modules for additional price sources (e.g. like TradeSkillMaster_AuctionDB for AuctionDB price sources).")
-		self:Print("|cffff0000LootAppraiser disabled.|r")
+		self:Print("|cffff0000LootAppraiser disabled.|r (see popup window for further details)")
+		self.errorFrame:Show()
 		self:Disable()
 		return
 	else
@@ -214,18 +236,29 @@ function LA:OnInitialize()
 			-- validate 'custom' price source 
 			local isValidCustomPriceSource = self.TSM:ParseCustomPrice(self:getCustomPriceSource())
 			if not isValidCustomPriceSource then
-				-- invalid -> chat msg: invalid 'custom' price source
-				self:Print("|cffff0000Attention!|r You have selected 'Custom' as price source but your formular ist invalid (see TSM documentation for detailed custom price source informations).")
-				self:Print(self:getCustomPriceSource())
+				local text = AceGUI:Create("LALabel")
+				text:SetText("|cffff0000Attention!|r You have selected 'Custom' as price source but your formular ist invalid (see TSM documentation for detailed custom price source informations).\n\n" .. (self:getCustomPriceSource() or "-empty-"))
+				text:SetFont(GameFontNormal:GetFont())
+				text:SetWidth(340)
+				self.errorFrame:AddChild(text)
+
+				self.errorFrame:Show()
 			end
 		else
 			-- normal price source check against prepared list
 			if not priceSources[priceSource] then
-				-- invalid -> chat msg: invalid price source
-				self:Print("|cffff0000Attention!|r Your selected price source is not valid (maybe due to a missing TSM module). Please select another price source or install the needed TSM module for the selected price source (see TSM documentation).")
+				local text = AceGUI:Create("LALabel")
+				text:SetText("|cffff0000Attention!|r Your selected price source is not valid (maybe due to a missing TSM module). Please select another price source or install the needed TSM module for the selected price source (see TSM documentation)."))
+				text:SetFont(GameFontNormal:GetFont())
+				text:SetWidth(340)
+				self.errorFrame:AddChild(text)
+
+				self.errorFrame:Show()
 			end
 	 	end
 	end
+
+	self.errorFrame = nil
 
 	self:SetSinkStorage(self.db.profile.notification.sink)
 
