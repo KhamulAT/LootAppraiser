@@ -364,13 +364,13 @@ local options = {
 							args = {
 								enableStatisticTooltip = { type = "toggle", order = 10, name = "Show drop statistics in item tooltip", width = "double", }, 
 								enableMinimapIcon = { type = "toggle", order = 20, name = "Show minimap icon", width = "double", 
-									get = function(info) return LA.db.profile.minimapIcon.hide end,
+									get = function(info) return not LA.db.profile.minimapIcon.hide end,
 									set = function(info, value) 
-										LA.db.profile.minimapIcon.hide = value 
+										LA.db.profile.minimapIcon.hide = not value 
 										if LA.db.profile.minimapIcon.hide == true then
-											LA.icon:Show(LA.METADATA.NAME)
-										else
 											LA.icon:Hide(LA.METADATA.NAME)
+										else
+											LA.icon:Show(LA.METADATA.NAME)
 										end
 									end,
 								}, 

@@ -277,7 +277,7 @@ function LA:OnInitialize()
 				if isShiftKeyDown then
 					local callback = LA:GetMinimapIconModulCallback("LeftButton", "Shift")
 					if callback then
-						callback()
+						pcall(callback())						
 					end
 				else
 					if not LA:isSessionRunning() then
@@ -350,10 +350,12 @@ function LA:OnInitialize()
 			end
 		end
 	})
-	LA:D("  self.db=" .. tostring(self.db))
-	LA:D("  self.db.profile=" .. tostring(self.db.profile))
-	LA:D("  self.db.profile.minimapIcon=" .. tostring(self.db.profile.minimapIcon))
 	self.icon:Register(LA.METADATA.NAME, self.LibDataBroker, self.db.profile.minimapIcon)
+	if self.db.profile.minimapIcon.hide == true then
+		self.icon:Show(LA.METADATA.NAME)
+	else
+		self.icon:Hide(LA.METADATA.NAME)
+	end
 
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
