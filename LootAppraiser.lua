@@ -742,7 +742,7 @@ end
 -- the main logic for item processing
 ---------------------------------------------------------------------------------------]]
 local mapIDItemCount = {}
-function LA:handleItemLooted(itemLink, itemID, quantity, data)
+function LA:handleItemLooted(itemLink, itemID, quantity, itemData)
 	self:Debug("handleItemLooted itemID=%s", itemID)
 	LA:D("  " .. tostring(itemID) .. ": handle item: " .. itemLink .. " x" .. tostring(quantity))
 
@@ -889,7 +889,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity, data)
 				if data and data.callback and data.callback.itemDrop then
 					local callback = data.callback.itemDrop
 
-					callback(itemID, singleItemValue, data)
+					callback(itemID, singleItemValue, itamData)
 				end
 			end
 		end
