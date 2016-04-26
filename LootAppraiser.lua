@@ -139,6 +139,8 @@ LibToast:Register(LootAppraiser,
 ---------------------------------------------------------------------------------------]]
 local lineAdded = false
 local function OnTooltipSetItem(tooltip, ...)
+	if not LA:isStatisticTooltipEnabled() then return end
+
 	if not lineAdded then
 		local _, link = tooltip:GetItem()
 
@@ -248,7 +250,7 @@ function LA:OnInitialize()
 			-- normal price source check against prepared list
 			if not priceSources[priceSource] then
 				local text = AceGUI:Create("LALabel")
-				text:SetText("|cffff0000Attention!|r Your selected price source is not valid (maybe due to a missing TSM module). Please select another price source or install the needed TSM module for the selected price source (see TSM documentation)."))
+				text:SetText("|cffff0000Attention!|r Your selected price source is not valid (maybe due to a missing TSM module). Please select another price source or install the needed TSM module for the selected price source (see TSM documentation).")
 				text:SetFont(GameFontNormal:GetFont())
 				text:SetWidth(340)
 				self.errorFrame:AddChild(text)
@@ -263,7 +265,7 @@ function LA:OnInitialize()
 	self:SetSinkStorage(self.db.profile.notification.sink)
 
 	-- prepare minimap icon --
-	self.LibDBIcon = LibStub("LibDBIcon-1.0")
+	self.icon = LibStub("LibDBIcon-1.0")
 	self.LibDataBroker = LibStub("LibDataBroker-1.1"):NewDataObject(LA.METADATA.NAME, {
 		type = "launcher",
 		text = "Loot Appraiser", -- for what?
@@ -348,7 +350,10 @@ function LA:OnInitialize()
 			end
 		end
 	})
-	self.LibDBIcon:Register(LA.METADATA.NAME, self.LibDataBroker, self.db.profile.minimapIcon)
+	LA:D("  self.db=" .. tostring(self.db))
+	LA:D("  self.db.profile=" .. tostring(self.db.profile))
+	LA:D("  self.db.profile.minimapIcon=" .. tostring(self.db.profile.minimapIcon))
+	self.icon:Register(LA.METADATA.NAME, self.LibDataBroker, self.db.profile.minimapIcon)
 
 	-- hook into tooltip to add lines
 	GameTooltip:HookScript("OnTooltipCleared", OnTooltipCleared)
@@ -492,9 +497,11 @@ function LA:initDB()
 			notification = { ["sink"] = { ["sink20Sticky"] = false, ["sink20OutputSink"] = "Blizzard", }, ["enableToasts"] = true, ["playSoundEnabled"] = true, ["soundName"] = "Auction Window Open", },
 			sellTrash = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Trash", },
 			blacklist = { ["tsmGroupEnabled"] = false, ["tsmGroup"] = "LootAppraiser`Blacklist", ["addBlacklistedItems2DestroyTrash"] = false, },
-			display = { lootedItemListRowCount = 5, showZoneInfo = true, showSessionDuration = true, showLootedItemValue = true, showLootedItemValuePerHour = true, showCurrencyLooted = true, showItemsLooted = true, showNoteworthyItems = true, enableLastNoteworthyItemUI = false, enableLootAppraiserLite = false, enableLootAppraiserTimerUI = false, },
+			display = { 
+				lootedItemListRowCount = 5, showZoneInfo = true, showSessionDuration = true, showLootedItemValue = true, showLootedItemValuePerHour = true, showCurrencyLooted = true, showItemsLooted = true, showNoteworthyItems = true, 
+				enableLastNoteworthyItemUI = false, enableLootAppraiserLite = false, enableLootAppraiserTimerUI = false,
+				enableStatisticTooltip = true, enableMinimapIcon = true },
 			sessionData = { groupBy = "datetime", },
-			challenge = { },
 		},
 		global = { sessions = { }, drops = { }, },
 	}
@@ -2447,6 +2454,22 @@ function LA:isLastNoteworthyItemUIEnabled()
 	end
 
 	return self.db.profile.display.enableLastNoteworthyItemUI
+end
+
+function LA:isStatisticTooltipEnabled()
+	if self.db.profile.display.enableStatisticTooltip == nil then
+		self.db.profile.display.enableStatisticTooltip = self.dbDefaults.profile.display.enableStatisticTooltip
+	end
+
+	return self.db.profile.display.enableStatisticTooltip
+end
+
+function LA:isMinimapIconEnabled()
+	if self.db.profile.display.enableMinimapIcon == nil then
+		self.db.profile.display.enableMinimapIcon = self.dbDefaults.profile.display.enableMinimapIcon
+	end
+
+	return self.db.profile.display.enableMinimapIcon
 end
 
 function LA:isDebugOutputEnabled()

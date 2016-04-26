@@ -360,8 +360,21 @@ local options = {
 							},
 							plugins = {},
 						},
-						displayTooltipOptions = { type = "group", order = 40, name = "Tooltip", hidden = true, inline = true,
-							args = {},
+						displayMiscOptions = { type = "group", order = 40, name = "Misc", hidden = false, inline = true,
+							args = {
+								enableStatisticTooltip = { type = "toggle", order = 10, name = "Show drop statistics in item tooltip", width = "double", }, 
+								enableMinimapIcon = { type = "toggle", order = 20, name = "Show minimap icon", width = "double", 
+									get = function(info) return LA.db.profile.minimapIcon.hide end,
+									set = function(info, value) 
+										LA.db.profile.minimapIcon.hide = value 
+										if LA.db.profile.minimapIcon.hide == true then
+											LA.icon:Show(LA.METADATA.NAME)
+										else
+											LA.icon:Hide(LA.METADATA.NAME)
+										end
+									end,
+								}, 
+							},
 							plugins = {},
 						},
 					},
