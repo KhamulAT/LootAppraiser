@@ -8,12 +8,12 @@ local LibToast = LibStub("LibToast-1.0")
 local LSM = LibStub:GetLibrary("LibSharedMedia-3.0")
 
 -- Lua APIs
-local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string = 
-	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string
+local tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, unpack, sort = 
+	  tostring, pairs, ipairs, table, tonumber, select, time, math, floor, date, print, type, string, unpack, sort
 
 -- wow APIs
-local _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut =
-      _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut
+local _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut, GameFontNormal, GetLootSourceInfo, PlaySound, GetChatWindowInfo =
+      _G, GetMapNameByID, SecondsToTime, GameTooltip, GetContainerItemID, UseContainerItem, GetContainerItemLink, GetContainerNumSlots, GetMerchantItemInfo, GetMerchantNumItems, SendChatMessage, ResetInstances, IsInGroup, DeleteCursorItem, PickupContainerItem, GetRealmName, GetUnitName, GetCurrentMapAreaID, CreateFrame, UIFrameFadeIn, GetLootSlotInfo, GetLootSlotLink, PlaySoundFile, GetLootSlotType, GetNumLootItems, GetItemInfo, GetContainerItemInfo, UIParent, InterfaceOptionsFrame_OpenToCategory, IsShiftKeyDown, UIFrameFadeOut, GameFontNormal, GetLootSourceInfo, PlaySound, GetChatWindowInfo
 local NUM_BAG_SLOTS, CHAT_FRAME_FADE_TIME, LE_PARTY_CATEGORY_INSTANCE, LE_PARTY_CATEGORY_HOME = 
       NUM_BAG_SLOTS, CHAT_FRAME_FADE_TIME, LE_PARTY_CATEGORY_INSTANCE, LE_PARTY_CATEGORY_HOME
 
@@ -277,7 +277,7 @@ function LA:OnInitialize()
 				if isShiftKeyDown then
 					local callback = LA:GetMinimapIconModulCallback("LeftButton", "Shift")
 					if callback then
-						pcall(callback())						
+						callback()						
 					end
 				else
 					if not LA:isSessionRunning() then
@@ -891,7 +891,7 @@ function LA:handleItemLooted(itemLink, itemID, quantity, itemData)
 				if data and data.callback and data.callback.itemDrop then
 					local callback = data.callback.itemDrop
 
-					callback(itemID, singleItemValue, itamData)
+					callback(itemID, singleItemValue, itemData)
 				end
 			end
 		end
